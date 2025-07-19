@@ -330,71 +330,19 @@ Images should be organized in the following structure
 
 ## ADNI MRI Preprocessing
 
-Automates preprocessing for ADNI MRI images:
+The project includes a comprehensive MRI preprocessing pipeline that automates:
 1. Resampling to 1mm isotropic spacing
-2. Registration to a standard template
-3. Skull stripping
+2. Registration to a standard template (ICBM152)
+3. Skull stripping using FSL BET
 
-### Requirements
+The preprocessing script includes advanced features such as resume functionality, directory filtering, progress tracking, and robust error handling.
 
-- Python 3.10+
-- ANTs (Advanced Normalization Tools)
-- FSL (FMRIB Software Library)
+📖 **For complete preprocessing documentation, see [docs/MRI_PREPROCESSING.md](docs/MRI_PREPROCESSING.md)**
 
-### Usage
+### Quick Start
 
 ```bash
-python scripts/preprocess_mri.py --input input_folder [--output output_dir] [--template template.nii.gz]
+python scripts/preprocess_mri.py --input input_folder
 ```
 
-#### Arguments
-
-- `--input`: Path to input directory containing MRI images (required)
-- `--output`: Base output directory (default: same folder name in parent directory)
-- `--template`: Template for registration (default: data/ICBM152/mni_icbm152_t1_tal_nlin_sym_09a.nii)
-
-#### Output Structure
-
-For each .nii or .nii.gz file in the input directory, the script creates:
-
-- `<dirname>/<basename>_step1_resampling/`: Contains resampled images
-- `<dirname>/<basename>_step2_registration/`: Contains registration outputs
-- `<dirname>/<basename>_step3_skull_stripping/`: Contains final skull-stripped images
-
-Where `<dirname>` is the parent directory of the input folder and `<basename>` is the name of the input folder.
-
-The script preserves the original subfolder structure in each step's output directory.
-Each output file maintains the same filename and directory structure as in the input directory.
-
-#### Example
-
-Using this input structure:
-```
-/path/to/input_dir/
-└── subject001/
-    └── session01/
-        └── scan.nii
-```
-
-You can run:
-```bash
-python scripts/preprocess_mri.py --input /path/to/input_dir
-```
-
-The script will create:
-```
-/path/to/input_dir_step1_resampling/
-└── subject001/
-    └── session01/
-        └── scan.nii
-
-/path/to/input_dir_step2_registration/
-└── subject001/
-    └── session01/
-        └── scan.nii
-
-/path/to/input_dir_step3_skull_stripping/
-└── subject001/
-    └── session01/
-        └── scan.nii.gz
-```
+**Requirements:** ANTs, FSL, Python 3.10+
