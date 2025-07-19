@@ -3,8 +3,8 @@
 # Use the same data configuration as clients for consistency
 # (though server typically doesn't load data)
 data:
-  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
-  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
+  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
+  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
   img_dir: "data/ADNI/3T_bl_org_P1_20250603/3T_bl_org_MRI_1_NIfTI_removedDup_step3_skull_stripping"
   dataset_type: "normal"
   classification_mode: "CN_AD"
@@ -29,7 +29,7 @@ training:
   batch_size: 2
   learning_rate: 0.0001
   weight_decay: 0.01
-  seed: 1
+  seed: 244
   num_workers: 2
   num_epochs: 2
   output_dir: "outputs"  # Checkpoints will be saved in {output_dir}/checkpoints/
@@ -67,13 +67,13 @@ fl:
       config_file: "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus/fl_server.yaml"
       sequential_experiment: true
       train_sequential_labels:
-        - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
+        # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
       val_sequential_labels:
-        - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
+        # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
@@ -89,13 +89,13 @@ fl:
         config_file: "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus/client1.yaml"
         sequential_experiment: true
         train_sequential_labels:
-          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_213images.csv"
+          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_213images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_213images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_213images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_213images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_213images.csv"
         val_sequential_labels:
-          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_47images.csv"
+          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_47images.csv"
@@ -108,13 +108,13 @@ fl:
         config_file: "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus/client2.yaml"
         sequential_experiment: true
         train_sequential_labels:
-          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
+          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
         val_sequential_labels:
-          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_47images.csv"
+          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_47images.csv"
@@ -127,13 +127,13 @@ fl:
         config_file: "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus/client3.yaml"
         sequential_experiment: true
         train_sequential_labels:
-          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_210images.csv"
+          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_210images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_210images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_210images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_210images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_210images.csv"
         val_sequential_labels:
-          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_47images.csv"
+          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_47images.csv"
@@ -146,13 +146,13 @@ fl:
         config_file: "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus/client4.yaml"
         sequential_experiment: true
         train_sequential_labels:
-          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_train_212images.csv"
+          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_train_212images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_train_212images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_train_212images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_train_212images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_train_212images.csv"
         val_sequential_labels:
-          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_val_47images.csv"
+          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_val_47images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_4_val_47images.csv"
@@ -175,5 +175,5 @@ wandb:
   project: "fl-adni-classification"
   entity: "tin-hoang"
   tags: ["federated-learning", "secaggplus", "rosanna"]
-  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus-seed01"
-  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus-seed01"
+  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus-seed244"
+  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus-seed244"

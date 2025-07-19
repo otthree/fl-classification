@@ -24,7 +24,7 @@ model:
   input_channels: 1  # Number of input channels
 
 training:
-  batch_size: 4
+  batch_size: 2
   learning_rate: 0.0001
   weight_decay: 0.01  # 1e-2
   num_workers: 2
@@ -45,7 +45,7 @@ wandb:
   project: "fl-adni-classification"
   entity: "tin-hoang"
   tags: ["federated-learning", "fedavg", "rosanna"]
-  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-fedavg-seed244"
+  notes: "bs2"
   run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-fedavg-seed244"
 
 # FL-specific settings

@@ -26,7 +26,7 @@ model:
   input_channels: 1  # Number of input channels
 
 training:
-  batch_size: 4
+  batch_size: 2
   learning_rate: 0.0001
   weight_decay: 0.01
   seed: 244
@@ -60,15 +60,15 @@ fl:
       sequential_experiment: true
       train_sequential_labels:
         # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
-        # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
-        # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
-        # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
+        - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
+        - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
+        - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
       val_sequential_labels:
         # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
-        # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
-        # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
-        # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
+        - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
+        - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
+        - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
         - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
 
     # Client machines configuration
@@ -82,15 +82,15 @@ fl:
         sequential_experiment: true
         train_sequential_labels:
           # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_282images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_282images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_282images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_282images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_282images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_282images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_282images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_282images.csv"
         val_sequential_labels:
           # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_63images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_63images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_63images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_63images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_63images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_63images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_63images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_63images.csv"
       - host: "otter66.eps.surrey.ac.uk"
         username: "th01167"
@@ -101,15 +101,15 @@ fl:
         sequential_experiment: true
         train_sequential_labels:
           # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
         val_sequential_labels:
           # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
       - host: "otter27.eps.surrey.ac.uk"
         username: "th01167"
@@ -120,15 +120,15 @@ fl:
         sequential_experiment: true
         train_sequential_labels:
           # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_282images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_282images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_282images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_282images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_282images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_282images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_282images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_train_282images.csv"
         val_sequential_labels:
           # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_62images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_62images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_62images.csv"
-          # - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_62images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed10/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_62images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_62images.csv"
+          - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_62images.csv"
           - "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_3_val_62images.csv"
 
     # Project configuration
@@ -148,5 +148,5 @@ wandb:
   project: "fl-adni-classification"
   entity: "tin-hoang"
   tags: ["federated-learning", "fedavg", "rosanna"]
-  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-fedavg-seed244"
+  notes: "bs2"
   run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-fedavg-seed244"
