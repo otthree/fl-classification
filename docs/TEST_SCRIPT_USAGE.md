@@ -6,14 +6,19 @@ This document describes how to use the `scripts/test.py` script to evaluate trai
 
 The `test.py` script provides comprehensive evaluation of trained models on test datasets. It supports:
 
+- **Single Model Evaluation**: Evaluate individual trained checkpoints
+- **Cross-Validation Analysis**: Evaluate multiple checkpoints from CV experiments with aggregated statistics
 - **Model Loading**: Load any trained checkpoint (training checkpoints, best models, or state dicts)
 - **Dataset Support**: 2-class (CN/AD) or 3-class (CN/MCI/AD) classification with MCI subtype filtering
 - **Comprehensive Metrics**: Accuracy, precision, recall, F1-score, AUC, top-k accuracy, confidence analysis
+- **Statistical Analysis**: Mean, standard deviation, min/max across CV folds
 - **Visualization**: Confusion matrices, ROC curves, confidence histograms, prediction samples
 - **Timing Analysis**: Inference time measurement per batch and per sample
-- **Results Export**: JSON results, classification reports, and visualizations
+- **Results Export**: JSON results, classification reports, CSV summaries, and visualizations
 
 ## Basic Usage
+
+### Single Model Evaluation
 
 ```bash
 # Minimal command (recommended - auto-detects model and generates output directory)
@@ -33,11 +38,38 @@ python scripts/test.py \
     --output_dir ./custom_results
 ```
 
+### Cross-Validation Evaluation (New Feature)
+
+```bash
+# Evaluate multiple checkpoints from cross-validation experiments
+python scripts/test.py \
+    --checkpoint path/to/fold1_checkpoint.pth path/to/fold2_checkpoint.pth path/to/fold3_checkpoint.pth \
+    --test_csv path/to/test_data.csv \
+    --img_dir path/to/images \
+    --classification_mode CN_AD
+
+# Real example with seed-based CV experiments
+python scripts/test.py \
+    --checkpoint \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed01_20250717_033737/rosanna_cnn_checkpoint_best.pth \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed10_20250718_230101/rosanna_cnn_checkpoint_best.pth \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed42_20250717_034126/rosanna_cnn_checkpoint_best.pth \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed101_20250717_034328/rosanna_cnn_checkpoint_best.pth \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed244_20250719_025650/rosanna_cnn_checkpoint_best.pth \
+    --test_csv data/ADNI/LABELS/3T_bl_org_MRI_UniqueSID_test_100images_50CN50AD.csv \
+    --img_dir data/ADNI/3T_bl_org_P1_20250603/3T_bl_org_MRI_1_NIfTI_removedDup_step3_skull_stripping \
+    --classification_mode CN_AD \
+    --resize_size 96 96 73 \
+    --mci_subtype_filter LMCI \
+    --batch_size 2 \
+    --visualize
+```
+
 ## Command Line Arguments
 
 ### Required Arguments
 
-- `--checkpoint`: Path to model checkpoint file
+- `--checkpoint`: Path(s) to model checkpoint file(s). **For cross-validation**, provide multiple paths separated by spaces.
 - `--test_csv`: Path to test dataset CSV file
 - `--img_dir`: Directory containing MRI images
 
@@ -50,7 +82,7 @@ python scripts/test.py \
 
 ### Optional Arguments
 
-- `--output_dir`: Directory to save results (default: auto-generated based on checkpoint)
+- `--output_dir`: Directory to save results (default: auto-generated based on checkpoint(s))
 - `--batch_size`: Batch size for evaluation (default: 8)
 - `--num_workers`: Number of data loading workers (default: 4)
 - `--device`: Device to use - "cuda", "cpu", or specific GPU like "cuda:1" (default: auto-detect)
@@ -61,31 +93,42 @@ python scripts/test.py \
 
 When `--output_dir` is not specified, the script automatically generates an organized output directory based on:
 
+### Single Checkpoint
 1. **Checkpoint Parent Directory**: The training run folder name
 2. **Checkpoint Type**: Extracted from filename (best, latest, epoch_X, etc.)
 3. **Timestamp**: When the evaluation was run
 
-### Format
+**Format:**
 ```
 evaluation_results/{parent_dir_name}_{checkpoint_type}_{timestamp}
 ```
 
+### Multiple Checkpoints (Cross-Validation)
+1. **Common Experiment Base**: Extracted from checkpoint directories (removes seed/fold patterns)
+2. **Number of Folds**: Count of checkpoints provided
+3. **Checkpoint Type**: Extracted from filenames (best, latest, etc.)
+4. **Timestamp**: When the evaluation was run
+
+**Format:**
+```
+evaluation_results/{base_experiment_name}_cv{num_folds}folds_{checkpoint_type}_{timestamp}
+```
+
 ### Examples
 ```bash
+# Single checkpoint
 # Checkpoint: outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed101_20250717_034328/rosanna_cnn_checkpoint_best.pth
 # Generated: evaluation_results/rosanna-3T_P1-1220images-2classes-scratch-seed101_20250717_034328_best_20250118_143025
 
-# Checkpoint: experiments/resnet3d_run_42/model_checkpoint_epoch_50.pth
-# Generated: evaluation_results/resnet3d_run_42_epoch50_20250118_143025
-
-# Checkpoint: saved_models/my_model_latest.pth
-# Generated: evaluation_results/saved_models_latest_20250118_143025
+# Cross-validation (5 checkpoints)
+# Checkpoints: outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed{01,10,42,101,244}_*/rosanna_cnn_checkpoint_best.pth
+# Generated: evaluation_results/rosanna-3T_P1-1220images-2classes-scratch_cv5folds_best_20250118_143025
 ```
 
 This automatic naming helps organize evaluation results and makes it easy to:
-- Track which model was evaluated
-- Identify the checkpoint type used
-- Know when the evaluation was performed
+- Track which model(s) were evaluated
+- Identify single vs. cross-validation experiments
+- Know how many folds were used in CV
 - Avoid overwriting previous evaluation results
 
 ## Configuration
@@ -154,17 +197,102 @@ The test CSV should contain:
 
 For binary classification, you can filter MCI samples:
 
-```yaml
-data:
-  classification_mode: "CN_AD"
-  mci_subtype_filter: ["EMCI", "LMCI"]  # Include only Early and Late MCI
+```bash
+--classification_mode CN_AD \
+--mci_subtype_filter EMCI LMCI  # Include only Early and Late MCI
 ```
 
 Valid subtypes: `CN`, `SMC`, `EMCI`, `LMCI`, `AD`
 
+## Cross-Validation Analysis Features
+
+When multiple checkpoints are provided, the script performs comprehensive cross-validation analysis:
+
+### Statistical Aggregation
+- **Mean and Standard Deviation**: For all key metrics across folds
+- **Min/Max Values**: Range of performance across folds
+- **Individual Fold Results**: Detailed results for each checkpoint
+
+### Key Metrics Analyzed
+- **Overall Performance**: Accuracy, F1-macro, F1-weighted, Precision, Recall
+- **Per-Class Performance**: Precision, Recall, F1-score for each class
+- **AUC Scores**: ROC-AUC analysis across folds
+- **Timing Statistics**: Inference time analysis
+- **Confidence Statistics**: Prediction confidence across folds
+
+### Cross-Validation Output Structure
+
+```
+cv_output_directory/
+├── cv_summary.json              # Complete aggregated results
+├── cv_summary_table.csv         # Summary table in CSV format
+├── cv_report.txt               # Human-readable CV report
+├── fold_1/                     # Individual fold results
+│   ├── evaluation_results.json
+│   └── predictions_detailed.csv
+├── fold_2/
+│   ├── evaluation_results.json
+│   └── predictions_detailed.csv
+├── ...
+└── prediction_samples.png      # Visualization (if --visualize used)
+```
+
+### Cross-Validation Summary Table
+
+The script prints a comprehensive summary table like this:
+
+```
+CROSS-VALIDATION SUMMARY (5 FOLDS)
+================================================================================
+
+OVERALL PERFORMANCE METRICS:
+------------------------------------------------------------
+Metric                    Mean         Std          Min          Max
+------------------------------------------------------------
+Accuracy                  0.8542       0.0234       0.8234       0.8901
+F1 Macro                  0.8456       0.0189       0.8167       0.8723
+F1 Weighted               0.8598       0.0201       0.8345       0.8834
+Precision Macro           0.8612       0.0156       0.8423       0.8789
+Recall Macro              0.8423       0.0267       0.8089       0.8756
+
+PER-CLASS PERFORMANCE:
+--------------------------------------------------------------------------------
+
+Class: CN
+Metric          Mean         Std          Min          Max
+-----------------------------------------------------------------
+Precision       0.8789       0.0123       0.8634       0.8945
+Recall          0.8456       0.0234       0.8123       0.8734
+F1              0.8612       0.0178       0.8356       0.8823
+
+Class: AD
+Metric          Mean         Std          Min          Max
+-----------------------------------------------------------------
+Precision       0.8435       0.0289       0.8012       0.8823
+Recall          0.8389       0.0198       0.8134       0.8656
+F1              0.8401       0.0156       0.8189       0.8634
+
+AUC SCORES:
+----------------------------------------------------------------------
+AUC Type             Mean         Std          Min          Max
+----------------------------------------------------------------------
+Binary               0.9123       0.0145       0.8934       0.9289
+
+INDIVIDUAL FOLD RESULTS:
+----------------------------------------------------------------------------------------------------
+Fold   Accuracy   F1 Macro   F1 Weighted    Precision   Recall
+----------------------------------------------------------------------------------------------------
+1      0.8542     0.8456     0.8598         0.8612      0.8423
+2      0.8734     0.8623     0.8789         0.8723      0.8567
+3      0.8234     0.8167     0.8345         0.8423      0.8089
+4      0.8901     0.8723     0.8834         0.8789      0.8756
+5      0.8301     0.8234     0.8456         0.8534      0.8234
+====================================================================================================
+```
+
 ## Example Usage Scenarios
 
-### 1. Quick Evaluation (Minimal Command - Recommended)
+### 1. Quick Single Model Evaluation (Minimal Command - Recommended)
 
 ```bash
 python scripts/test.py \
@@ -175,7 +303,44 @@ python scripts/test.py \
 # Output: evaluation_results/resnet3d_run_001_best_20250118_143025/
 ```
 
-### 2. Binary Classification with Visualization
+### 2. Cross-Validation Analysis (5-Fold)
+
+```bash
+python scripts/test.py \
+    --checkpoint \
+        experiments/fold1/model_best.pth \
+        experiments/fold2/model_best.pth \
+        experiments/fold3/model_best.pth \
+        experiments/fold4/model_best.pth \
+        experiments/fold5/model_best.pth \
+    --test_csv data/test_set.csv \
+    --img_dir data/images \
+    --classification_mode CN_MCI_AD
+# Output: evaluation_results/experiments_cv5folds_best_20250118_143025/
+# Includes: cv_summary.json, cv_summary_table.csv, fold_1/ to fold_5/
+```
+
+### 3. Seed-Based Cross-Validation (Real-World Example)
+
+```bash
+python scripts/test.py \
+    --checkpoint \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed01_*/rosanna_cnn_checkpoint_best.pth \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed10_*/rosanna_cnn_checkpoint_best.pth \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed42_*/rosanna_cnn_checkpoint_best.pth \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed101_*/rosanna_cnn_checkpoint_best.pth \
+        outputs_centralized/rosanna-3T_P1-1220images-2classes-scratch-seed244_*/rosanna_cnn_checkpoint_best.pth \
+    --test_csv data/ADNI/LABELS/3T_bl_org_MRI_UniqueSID_test_100images_50CN50AD.csv \
+    --img_dir data/ADNI/3T_bl_org_P1_20250603/3T_bl_org_MRI_1_NIfTI_removedDup_step3_skull_stripping \
+    --classification_mode CN_AD \
+    --resize_size 96 96 73 \
+    --mci_subtype_filter LMCI \
+    --batch_size 2 \
+    --visualize
+# Output: evaluation_results/rosanna-3T_P1-1220images-2classes-scratch_cv5folds_best_20250118_143025/
+```
+
+### 4. Binary Classification with Visualization
 
 ```bash
 python scripts/test.py \
@@ -189,7 +354,7 @@ python scripts/test.py \
 # Output: evaluation_results/binary_model_best_20250118_143025/
 ```
 
-### 3. Custom Model Configuration
+### 5. Custom Model Configuration
 
 ```bash
 python scripts/test.py \
@@ -204,39 +369,40 @@ python scripts/test.py \
     --num_workers 8
 ```
 
-### 4. Advanced Configuration Example
-
-```bash
-python scripts/test.py \
-    --checkpoint path/to/checkpoint.pth \
-    --test_csv data/test.csv \
-    --img_dir data/images \
-    --model_name resnet3d \
-    --classification_mode CN_MCI_AD \
-    --resize_size 224 224 224 \
-    --batch_size 2 \
-    --device cuda:1 \
-    --num_workers 8
-# Full control over all parameters
-```
-
 ## Output Files
+
+### Single Model Evaluation
 
 The script generates several output files:
 
-### Core Results
+#### Core Results
 - `evaluation_results.json`: Complete evaluation metrics and predictions
 - `classification_report.txt`: Detailed classification report
 - `predictions_detailed.csv`: Per-image prediction results with paths and probabilities
 - `confusion_matrix.png`: Raw confusion matrix
 - `confusion_matrix_normalized.png`: Normalized confusion matrix
 
-### Advanced Visualizations
+#### Advanced Visualizations
 - `roc_curves.png`: ROC curves (per-class for multi-class)
 - `confidence_histogram.png`: Confidence score distributions
 - `prediction_samples.png`: Sample predictions (if `--visualize` used)
 
-### JSON Results Structure
+### Cross-Validation Evaluation
+
+#### Aggregated Results
+- `cv_summary.json`: Complete cross-validation analysis with statistics
+- `cv_summary_table.csv`: Summary statistics in tabular format
+- `cv_report.txt`: Human-readable cross-validation report
+
+#### Individual Fold Results
+- `fold_1/` to `fold_N/`: Directories containing individual fold results
+  - `evaluation_results.json`: Complete results for this fold
+  - `predictions_detailed.csv`: Per-image predictions for this fold
+
+#### Visualizations
+- `prediction_samples.png`: Sample predictions (if `--visualize` used)
+
+### Single Model JSON Structure
 
 ```json
 {
@@ -253,6 +419,13 @@ The script generates several output files:
     "confidence_stats": {"mean_confidence": 0.82},
     "total_inference_time": 15.3
   },
+  "configuration": {
+    "model_name": "resnet3d",
+    "classification_mode": "CN_MCI_AD",
+    "checkpoint": "path/to/checkpoint.pth",
+    "batch_size": 8,
+    "resize_size": [128, 128, 128]
+  },
   "predictions": {
     "true_labels": [0, 1, 2, ...],
     "predicted_labels": [0, 1, 2, ...],
@@ -261,9 +434,81 @@ The script generates several output files:
 }
 ```
 
+### Cross-Validation JSON Structure
+
+```json
+{
+  "num_folds": 5,
+  "classification_mode": "CN_AD",
+  "class_names": ["CN", "AD"],
+  "summary_statistics": {
+    "accuracy": {
+      "mean": 0.8542,
+      "std": 0.0234,
+      "min": 0.8234,
+      "max": 0.8901,
+      "values": [0.8542, 0.8734, 0.8234, 0.8901, 0.8301]
+    },
+    "f1_macro": {
+      "mean": 0.8456,
+      "std": 0.0189,
+      "min": 0.8167,
+      "max": 0.8723,
+      "values": [0.8456, 0.8623, 0.8167, 0.8723, 0.8234]
+    },
+    "precision_per_class": {
+      "CN": {
+        "mean": 0.8789,
+        "std": 0.0123,
+        "min": 0.8634,
+        "max": 0.8945,
+        "values": [0.8789, 0.8823, 0.8634, 0.8945, 0.8712]
+      }
+    },
+    "auc_scores": {
+      "binary": {
+        "mean": 0.9123,
+        "std": 0.0145,
+        "min": 0.8934,
+        "max": 0.9289,
+        "values": [0.9123, 0.9156, 0.8934, 0.9289, 0.9012]
+      }
+    }
+  },
+  "fold_results": [
+    {
+      "fold": 1,
+      "accuracy": 0.8542,
+      "f1_macro": 0.8456,
+      "precision_per_class": {"CN": 0.8789, "AD": 0.8435}
+    }
+  ]
+}
+```
+
+### Cross-Validation CSV Summary Structure
+
+The `cv_summary_table.csv` file contains:
+
+| Column | Description |
+|--------|-------------|
+| `Category` | Type of metric (Overall, Per-Class, AUC) |
+| `Class` | Class name (All for overall metrics, specific class for per-class) |
+| `Metric` | Metric name (Accuracy, F1, Precision, etc.) |
+| `Mean` | Mean value across all folds |
+| `Std` | Standard deviation across folds |
+| `Min` | Minimum value across folds |
+| `Max` | Maximum value across folds |
+
+This format makes it easy to:
+- **Import into Excel/R/Python**: For further statistical analysis
+- **Compare Experiments**: Easily compare different CV runs
+- **Publication Ready**: Use statistics directly in papers
+- **Confidence Intervals**: Calculate confidence intervals from mean/std
+
 ### Detailed Predictions CSV Structure
 
-The `predictions_detailed.csv` file contains per-image prediction results with the following columns:
+The `predictions_detailed.csv` file (generated for each fold) contains per-image prediction results with the following columns:
 
 | Column | Description |
 |--------|-------------|
@@ -304,56 +549,35 @@ This CSV file is especially useful for:
 - **Min/Max Confidence**: Range of confidence scores
 - **Confidence Distribution**: Histograms by correctness and class
 
-## Memory Optimization
+### Cross-Validation Specific Metrics
+- **Mean ± Standard Deviation**: Primary performance metrics across folds
+- **Min/Max Values**: Range of performance to identify outliers
+- **Fold-wise Results**: Individual performance for each checkpoint
+- **Statistical Stability**: Standard deviation indicates model consistency
 
-For large datasets or limited memory:
+## Statistical Interpretation
 
-1. **Reduce Batch Size**: Use `--batch_size 2` or `--batch_size 4`
-2. **Reduce Workers**: Use `--num_workers 0` or `--num_workers 2`
-3. **CPU Evaluation**: Use `--device cpu` if GPU memory is limited
-4. **Smaller Images**: Use `--resize_size 96 96 73` for lower memory usage
+### Cross-Validation Statistics
 
-## Troubleshooting
+When interpreting CV results, consider:
 
-### Common Issues
+1. **Mean Performance**: Primary metric for model comparison
+2. **Standard Deviation**: Measure of model stability/consistency
+   - Low std (< 0.02): Very stable model
+   - Medium std (0.02-0.05): Reasonably stable
+   - High std (> 0.05): Consider more folds or data preprocessing
+3. **Min/Max Range**: Helps identify outlier folds
+4. **Per-Class Consistency**: Check if all classes perform consistently
 
-1. **Shape Mismatch Errors**:
-   - Check `--resize_size` matches training configuration
-   - Verify `--model_name` matches checkpoint
+### Reporting Guidelines
 
-2. **Missing Images**:
-   - Verify `--img_dir` path is correct
-   - Check that CSV image IDs match actual files
+For publications, report:
+- **Mean ± Standard Deviation**: Primary results
+- **Number of Folds**: For reproducibility
+- **Individual Fold Results**: In supplementary materials
+- **Statistical Significance**: If comparing models
 
-3. **Memory Errors**:
-   - Reduce `--batch_size`
-   - Use `--num_workers 0`
-   - Switch to CPU with `--device cpu`
-
-4. **Auto-Detection Errors**:
-   - Specify `--model_name` explicitly if auto-detection fails
-   - Check checkpoint path contains recognizable model names
-
-### Debug Tips
-
-1. **Test with Small Dataset**: Start with a small test CSV to verify setup
-2. **Check Arguments**: Ensure all paths and parameters are correct
-3. **Verify Model**: Test checkpoint loading separately
-4. **Monitor Memory**: Use system monitoring tools during evaluation
-
-## Performance Tips
-
-1. **GPU Optimization**:
-   - Use appropriate batch size for your GPU
-   - Enable pin_memory for faster data transfer
-
-2. **CPU Optimization**:
-   - Adjust num_workers based on CPU cores
-   - Consider batch size vs. memory trade-offs
-
-3. **Storage Optimization**:
-   - Use local storage for images if possible
-   - Consider image preprocessing and caching
+Example: "The model achieved an accuracy of 85.42% ± 2.34% (mean ± std) across 5-fold cross-validation, with individual fold results ranging from 82.34% to 89.01%."
 
 ## Integration with Training Pipeline
 
@@ -363,5 +587,55 @@ The test script is designed to work seamlessly with models trained using `script
 2. **Simple Arguments**: Only specify test data paths and image directory
 3. **Smart Defaults**: Evaluation uses sensible defaults optimized for testing
 4. **No Config Files**: No need to maintain separate config files for evaluation
+5. **Cross-Validation Ready**: Automatically handles multiple checkpoints from CV experiments
 
 This ensures consistent evaluation of your trained models with minimal setup and maximum convenience.
+
+### Cross-Validation Workflow
+
+1. **Train Models**: Use `scripts/train.py` with different seeds/folds
+2. **Collect Checkpoints**: Gather best checkpoints from each fold
+3. **Evaluate Together**: Run test script with all checkpoints
+4. **Analyze Results**: Review aggregated statistics and individual fold performance
+5. **Report Findings**: Use mean±std for primary results, individual folds for detailed analysis
+
+## Memory Optimization
+
+The script includes several memory optimization techniques:
+
+1. **Batch Size**: Adjust `--batch_size` to balance memory usage and inference speed.
+2. **Model Architecture**: Choose a model with efficient memory usage (e.g., ResNet3D, DenseNet3D).
+3. **GPU Utilization**: Ensure your GPU has sufficient memory. If running on CPU, `--device cpu` is recommended.
+4. **Data Preprocessing**: Efficiently load and preprocess data using `--num_workers`.
+5. **Model Loading**: Load only the necessary model state dicts.
+
+## Troubleshooting
+
+1. **"CUDA out of memory"**:
+   - Reduce `--batch_size`
+   - Use `--device cpu`
+   - Check GPU memory usage
+   - Ensure sufficient GPU RAM
+
+2. **"Model not found"**:
+   - Ensure `--model_name` matches the actual model architecture
+   - Check if the checkpoint path is correct
+   - Verify model architecture compatibility
+
+3. **"Invalid checkpoint format"**:
+   - Ensure the checkpoint file is a valid PyTorch state dictionary
+   - Check if the file extension is `.pth`
+   - Verify the file content
+
+4. **"CSV file not found"**:
+   - Ensure `--test_csv` and `--img_dir` are correct
+   - Check file permissions
+   - Verify file paths
+
+## Performance Tips
+
+1. **Batch Size**: Larger batch sizes can be faster but require more memory.
+2. **Model Architecture**: For faster inference, choose a lightweight model.
+3. **GPU Utilization**: If running on a multi-GPU system, use `--device cuda:0` or similar.
+4. **Data Preprocessing**: Efficient data loading and preprocessing can significantly impact performance.
+5. **Model Loading**: Only load the model state dicts you need.
