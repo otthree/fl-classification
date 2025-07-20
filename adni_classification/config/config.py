@@ -255,9 +255,9 @@ class Config:
             "client_config_files": self.fl.client_config_files,
             "evaluate_frequency": self.fl.evaluate_frequency,
             "fedprox_mu": self.fl.fedprox_mu,
-            # Original SecAgg (differential privacy) parameters
-            "secagg_noise_multiplier": self.fl.secagg_noise_multiplier,
-            "secagg_dropout_rate": self.fl.secagg_dropout_rate,
+            # Differential Privacy parameters
+            "dp_noise_multiplier": self.fl.dp_noise_multiplier,
+            "dp_dropout_rate": self.fl.dp_dropout_rate,
             # SecAgg+ (real secure aggregation) parameters
             "secagg_num_shares": self.fl.secagg_num_shares,
             "secagg_reconstruction_threshold": self.fl.secagg_reconstruction_threshold,

@@ -274,7 +274,7 @@ The configuration system is organized into five main sections:
 - **FL strategies**: `fedavg`, `fedprox`, `secagg`, `secaggplus`
 - **Round configuration**: `num_rounds`, `local_epochs`, `evaluate_frequency`
 - **Client selection**: `fraction_fit`, `min_fit_clients`, `min_available_clients`
-- **Strategy-specific**: `fedprox_mu`, `secagg_num_shares`, `secagg_reconstruction_threshold`, `secagg_max_weight`, `secagg_timeout`, `secagg_clipping_range`, `secagg_quantization_range`
+- **Strategy-specific**: `fedprox_mu`, `dp_noise_multiplier`, `dp_dropout_rate`, `secagg_num_shares`, `secagg_reconstruction_threshold`, `secagg_max_weight`, `secagg_timeout`, `secagg_clipping_range`, `secagg_quantization_range`
 
 #### 5. Weights & Biases Configuration (`wandb:`)
 - **Experiment tracking**: `use_wandb`, `project`, `entity`

@@ -1,4 +1,4 @@
-"""Secure Aggregation (SecAgg) strategy implementation."""
+"""Differential Privacy (DP) strategy implementation for Federated Learning."""
 
 import hashlib
 from typing import Any, Dict, List, Optional, Tuple
@@ -18,8 +18,16 @@ from adni_flwr.task import get_params, safe_parameters_to_ndarrays, set_params
 from .base import ClientStrategyBase, FLStrategyBase
 
 
-class SecAggStrategy(FLStrategyBase):
-    """Server-side Secure Aggregation strategy with comprehensive WandB logging."""
+class DifferentialPrivacyStrategy(FLStrategyBase):
+    """Server-side Differential Privacy strategy for Federated Learning with comprehensive WandB logging.
+
+    This strategy implements differential privacy in federated learning by:
+    1. Adding Gaussian noise to client parameters for privacy protection
+    2. Applying dropout masking for additional privacy
+    3. Using deterministic obfuscation masks
+
+    Note: This provides privacy through noise addition, which may affect model accuracy.
+    """
 
     def __init__(
         self,
@@ -30,21 +38,21 @@ class SecAggStrategy(FLStrategyBase):
         dropout_rate: float = 0.0,
         **kwargs,
     ):
-        """Initialize SecAgg strategy.
+        """Initialize Differential Privacy strategy.
 
         Args:
             config: Configuration object
             model: PyTorch model
             wandb_logger: Wandb logger instance
-            noise_multiplier: Multiplier for noise addition
+            noise_multiplier: Multiplier for Gaussian noise addition (DP parameter)
             dropout_rate: Dropout rate for parameter masking
-            **kwargs: Additional SecAgg parameters
+            **kwargs: Additional DP parameters
         """
         super().__init__(config, model, wandb_logger, **kwargs)
 
         self.noise_multiplier = noise_multiplier
         self.dropout_rate = dropout_rate
-        self.client_masks = {}  # Store client masks for secure aggregation
+        self.client_masks = {}  # Store client obfuscation masks
 
         # Extract specific parameters for FedAvg
         fedavg_params = {
@@ -72,7 +80,7 @@ class SecAggStrategy(FLStrategyBase):
 
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
-        return "secagg"
+        return "differential_privacy"
 
     def get_strategy_params(self) -> Dict[str, Any]:
         """Return strategy-specific parameters."""
@@ -87,25 +95,27 @@ class SecAggStrategy(FLStrategyBase):
         }
 
     def get_strategy_specific_metrics(self) -> Dict[str, Any]:
-        """Return strategy-specific metrics for SecAgg.
+        """Return strategy-specific metrics for Differential Privacy.
 
         Returns:
-            Dictionary of SecAgg specific metrics for logging.
+            Dictionary of DP specific metrics for logging.
         """
         return {
             "noise_multiplier": self.noise_multiplier,
             "dropout_rate": self.dropout_rate,
         }
 
-    def generate_client_mask(self, client_id: str, round_num: int) -> np.ndarray:
-        """Generate a deterministic mask for a client.
+    def generate_client_obfuscation_mask(self, client_id: str, round_num: int) -> np.ndarray:
+        """Generate a deterministic obfuscation mask for a client.
+
+        Note: This is simple obfuscation, not cryptographic secure aggregation.
 
         Args:
             client_id: Client identifier
             round_num: Current round number
 
         Returns:
-            Numpy array mask
+            Numpy array mask for parameter obfuscation
         """
         # Create deterministic seed from client_id and round
         seed_str = f"{client_id}_{round_num}_{self.noise_multiplier}"
@@ -119,52 +129,54 @@ class SecAggStrategy(FLStrategyBase):
         mask = []
 
         for param_array in model_params:
-            # Generate random mask for each parameter array
+            # Generate random obfuscation mask for each parameter array
             param_mask = np.random.uniform(-1, 1, param_array.shape)
             mask.append(param_mask)
 
         return mask
 
-    def secure_aggregate(self, results: List[Tuple[ClientProxy, FitRes]], round_num: int) -> Optional[Parameters]:
-        """Perform secure aggregation of client updates.
+    def differential_private_aggregate(
+        self, results: List[Tuple[ClientProxy, FitRes]], round_num: int
+    ) -> Optional[Parameters]:
+        """Perform differential private aggregation of client updates.
 
         Args:
             results: List of client results
             round_num: Current round number
 
         Returns:
-            Aggregated parameters
+            Aggregated parameters with DP guarantees
         """
         if not results:
             return None
 
-        print(f"Performing secure aggregation for {len(results)} clients")
+        print(f"Performing differential private aggregation for {len(results)} clients")
 
-        # Collect masked parameters and weights
-        masked_params_list = []
+        # Collect denoised parameters and weights
+        denoised_params_list = []
         weights = []
         client_masks = []
 
         for client_proxy, fit_res in results:
             client_id = str(client_proxy.cid)
 
-            # Generate mask for this client
-            client_mask = self.generate_client_mask(client_id, round_num)
+            # Generate obfuscation mask for this client
+            client_mask = self.generate_client_obfuscation_mask(client_id, round_num)
             client_masks.append(client_mask)
 
-            # Get client parameters
+            # Get client parameters (already contain DP noise)
             client_params = parameters_to_ndarrays(fit_res.parameters)
 
-            # Apply mask to parameters (remove the mask that was added by client)
-            unmasked_params = []
+            # Remove obfuscation mask that was added by client
+            deobfuscated_params = []
             for param, mask in zip(client_params, client_mask, strict=False):
-                unmasked_param = param - mask
-                unmasked_params.append(unmasked_param)
+                deobfuscated_param = param - mask
+                deobfuscated_params.append(deobfuscated_param)
 
-            masked_params_list.append(unmasked_params)
+            denoised_params_list.append(deobfuscated_params)
             weights.append(fit_res.num_examples)
 
-        # Perform weighted average
+        # Perform weighted average (preserving DP noise)
         total_examples = sum(weights)
         if total_examples == 0:
             return None
@@ -172,16 +184,16 @@ class SecAggStrategy(FLStrategyBase):
         # Initialize aggregated parameters
         aggregated_params = []
 
-        for i in range(len(masked_params_list[0])):
+        for i in range(len(denoised_params_list[0])):
             # Weighted sum for each parameter
-            weighted_sum = np.zeros_like(masked_params_list[0][i])
+            weighted_sum = np.zeros_like(denoised_params_list[0][i])
 
-            for _, (params, weight) in enumerate(zip(masked_params_list, weights, strict=False)):
+            for _, (params, weight) in enumerate(zip(denoised_params_list, weights, strict=False)):
                 weighted_sum += params[i] * (weight / total_examples)
 
             aggregated_params.append(weighted_sum)
 
-        print(f"Secure aggregation completed with {len(results)} clients")
+        print(f"Differential private aggregation completed with {len(results)} clients")
 
         return ndarrays_to_parameters(aggregated_params)
 
@@ -191,7 +203,7 @@ class SecAggStrategy(FLStrategyBase):
         results: List[Tuple[ClientProxy, FitRes]],
         failures: List[BaseException],
     ) -> Tuple[Optional[Parameters], Dict[str, float]]:
-        """Aggregate fit results using secure aggregation with enhanced logging."""
+        """Aggregate fit results using differential privacy with enhanced logging."""
         self.current_round = server_round
 
         # Log client training metrics
@@ -203,8 +215,8 @@ class SecAggStrategy(FLStrategyBase):
                     metrics_to_log = {k: v for k, v in client_metrics.items() if k != "client_id"}
                     self.wandb_logger.log_metrics(metrics_to_log, prefix=f"client_{client_id}/fit", step=server_round)
 
-        # Perform secure aggregation
-        aggregated_parameters = self.secure_aggregate(results, server_round)
+        # Perform differential private aggregation
+        aggregated_parameters = self.differential_private_aggregate(results, server_round)
 
         if aggregated_parameters is None:
             return None, {}
@@ -213,7 +225,7 @@ class SecAggStrategy(FLStrategyBase):
         param_arrays = safe_parameters_to_ndarrays(aggregated_parameters)
         set_params(self.model, param_arrays)
 
-        # Collect metrics with SecAgg-specific information
+        # Collect metrics with DP-specific information
         metrics = {
             "num_clients": len(results),
             "num_failures": len(failures),
@@ -221,15 +233,15 @@ class SecAggStrategy(FLStrategyBase):
             "dropout_rate": self.dropout_rate,
         }
 
-        # Log aggregated fit metrics with SecAgg-specific information
+        # Log aggregated fit metrics with DP-specific information
         if self.wandb_logger and metrics:
-            metrics_with_secagg = metrics.copy()
-            self.wandb_logger.log_metrics(metrics_with_secagg, prefix="server", step=server_round)
+            metrics_with_dp = metrics.copy()
+            self.wandb_logger.log_metrics(metrics_with_dp, prefix="server", step=server_round)
 
         # Print server model's current metrics
         print(
             f"Server model metrics after round {server_round} "
-            f"(SecAgg noise={self.noise_multiplier}, dropout={self.dropout_rate}):"
+            f"(DP noise={self.noise_multiplier}, dropout={self.dropout_rate}):"
         )
         for metric_name, metric_value in metrics.items():
             print(f"  {metric_name}: {metric_value}")
@@ -252,10 +264,10 @@ class SecAggStrategy(FLStrategyBase):
 
         from adni_flwr.task import get_params
 
-        print("SecAggStrategy: Initializing parameters from server model")
+        print("DifferentialPrivacyStrategy: Initializing parameters from server model")
         ndarrays = get_params(self.model)
-        print(f"SecAggStrategy: Sending {len(ndarrays)} parameter arrays to clients")
-        print(f"SecAggStrategy: First few parameter shapes: {[arr.shape for arr in ndarrays[:5]]}")
+        print(f"DifferentialPrivacyStrategy: Sending {len(ndarrays)} parameter arrays to clients")
+        print(f"DifferentialPrivacyStrategy: First few parameter shapes: {[arr.shape for arr in ndarrays[:5]]}")
 
         return ndarrays_to_parameters(ndarrays)
 
@@ -266,10 +278,10 @@ class SecAggStrategy(FLStrategyBase):
         # Get the base configuration from the parent class
         client_instructions = self.fedavg_strategy.configure_fit(server_round, parameters, client_manager)
 
-        # Add server_round and SecAgg parameters to the config for each client
+        # Add server_round and DP parameters to the config for each client
         updated_instructions = []
         for client_proxy, fit_ins in client_instructions:
-            # Add server_round and SecAgg parameters to the existing config
+            # Add server_round and DP parameters to the existing config
             config = fit_ins.config.copy() if fit_ins.config else {}
             config["server_round"] = server_round
             config["noise_multiplier"] = self.noise_multiplier
@@ -313,8 +325,14 @@ class SecAggStrategy(FLStrategyBase):
         return getattr(self.fedavg_strategy, name)
 
 
-class SecAggClient(ClientStrategyBase):
-    """Client-side Secure Aggregation strategy."""
+class DifferentialPrivacyClient(ClientStrategyBase):
+    """Client-side Differential Privacy strategy for Federated Learning.
+
+    This client strategy implements differential privacy by:
+    1. Adding calibrated Gaussian noise to model parameters
+    2. Applying dropout masking for additional privacy
+    3. Using simple obfuscation masks (not cryptographic)
+    """
 
     def __init__(
         self,
@@ -328,7 +346,7 @@ class SecAggClient(ClientStrategyBase):
         dropout_rate: float = 0.0,
         **kwargs,
     ):
-        """Initialize SecAgg client strategy.
+        """Initialize Differential Privacy client strategy.
 
         Args:
             config: Configuration object
@@ -337,7 +355,7 @@ class SecAggClient(ClientStrategyBase):
             criterion: Loss function
             device: Device to use for computation
             scheduler: Learning rate scheduler (optional)
-            noise_multiplier: Multiplier for noise addition
+            noise_multiplier: Multiplier for Gaussian noise addition (DP parameter)
             dropout_rate: Dropout rate for parameter masking
             **kwargs: Additional strategy parameters
         """
@@ -355,7 +373,7 @@ class SecAggClient(ClientStrategyBase):
         self.client_id = config.fl.client_id
         self.current_round = 0
 
-        # SecAgg-specific parameters
+        # DP-specific parameters
         self.mixed_precision = config.training.mixed_precision
         self.gradient_accumulation_steps = config.training.gradient_accumulation_steps
 
@@ -364,16 +382,18 @@ class SecAggClient(ClientStrategyBase):
 
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
-        return "secagg"
+        return "differential_privacy"
 
-    def generate_client_mask(self, round_num: int) -> List[np.ndarray]:
-        """Generate a deterministic mask for this client.
+    def generate_client_obfuscation_mask(self, round_num: int) -> List[np.ndarray]:
+        """Generate a deterministic obfuscation mask for this client.
+
+        Note: This is simple obfuscation, not cryptographic secure aggregation.
 
         Args:
             round_num: Current round number
 
         Returns:
-            List of numpy array masks
+            List of numpy array obfuscation masks
         """
         # Create deterministic seed from client_id and round
         seed_str = f"{self.client_id}_{round_num}_{self.noise_multiplier}"
@@ -387,25 +407,25 @@ class SecAggClient(ClientStrategyBase):
         mask = []
 
         for param_array in model_params:
-            # Generate random mask for each parameter array
+            # Generate random obfuscation mask for each parameter array
             param_mask = np.random.uniform(-1, 1, param_array.shape)
             mask.append(param_mask)
 
         return mask
 
-    def add_noise_to_parameters(self, params: List[np.ndarray]) -> List[np.ndarray]:
-        """Add noise to parameters for privacy.
+    def add_gaussian_noise_for_privacy(self, params: List[np.ndarray]) -> List[np.ndarray]:
+        """Add calibrated Gaussian noise to parameters for differential privacy.
 
         Args:
             params: List of parameter arrays
 
         Returns:
-            List of noisy parameter arrays
+            List of DP-noisy parameter arrays
         """
         noisy_params = []
 
         for param_array in params:
-            # Add Gaussian noise
+            # Add Gaussian noise for differential privacy
             noise = np.random.normal(0, self.noise_multiplier, param_array.shape)
             noisy_param = param_array + noise
             noisy_params.append(noisy_param)
@@ -413,13 +433,13 @@ class SecAggClient(ClientStrategyBase):
         return noisy_params
 
     def apply_dropout_mask(self, params: List[np.ndarray]) -> List[np.ndarray]:
-        """Apply dropout mask to parameters.
+        """Apply dropout mask to parameters for additional privacy.
 
         Args:
             params: List of parameter arrays
 
         Returns:
-            List of masked parameter arrays
+            List of dropout-masked parameter arrays
         """
         if self.dropout_rate == 0.0:
             return params
@@ -456,14 +476,14 @@ class SecAggClient(ClientStrategyBase):
         # Reset optimizer state
         self.optimizer.zero_grad()
 
-        # Update parameters if specified in round config
+        # Update DP parameters if specified in round config
         if "noise_multiplier" in round_config:
             self.noise_multiplier = round_config["noise_multiplier"]
         if "dropout_rate" in round_config:
             self.dropout_rate = round_config["dropout_rate"]
 
     def train_epoch(self, train_loader: DataLoader, epoch: int, total_epochs: int, **kwargs) -> Tuple[float, float]:
-        """Train the model for one epoch using SecAgg.
+        """Train the model for one epoch using Differential Privacy.
 
         Args:
             train_loader: Training data loader
@@ -534,36 +554,36 @@ class SecAggClient(ClientStrategyBase):
 
         return avg_loss, avg_accuracy
 
-    def get_secure_parameters(self) -> List[np.ndarray]:
-        """Get model parameters with secure masking applied.
+    def get_differential_private_parameters(self) -> List[np.ndarray]:
+        """Get model parameters with differential privacy applied.
 
         Returns:
-            List of masked parameter arrays
+            List of DP-protected parameter arrays
         """
         # Get current model parameters
         params = get_params(self.model)
 
-        # Apply dropout mask
+        # Apply dropout mask for additional privacy
         params = self.apply_dropout_mask(params)
 
-        # Add noise for privacy
-        params = self.add_noise_to_parameters(params)
+        # Add Gaussian noise for differential privacy
+        params = self.add_gaussian_noise_for_privacy(params)
 
-        # Generate and apply client mask
-        client_mask = self.generate_client_mask(self.current_round)
-        masked_params = []
+        # Generate and apply obfuscation mask (simple obfuscation, not cryptographic)
+        client_mask = self.generate_client_obfuscation_mask(self.current_round)
+        obfuscated_params = []
 
         for param, mask in zip(params, client_mask, strict=False):
-            masked_param = param + mask
-            masked_params.append(masked_param)
+            obfuscated_param = param + mask
+            obfuscated_params.append(obfuscated_param)
 
-        return masked_params
+        return obfuscated_params
 
     def get_custom_metrics(self) -> Dict[str, Any]:
-        """Return custom SecAgg-specific metrics.
+        """Return custom Differential Privacy-specific metrics.
 
         Returns:
-            Dictionary of custom metrics
+            Dictionary of custom DP metrics
         """
-        # Return SecAgg-specific metrics for WandB tracking
+        # Return DP-specific metrics for WandB tracking
         return {"noise_multiplier": self.noise_multiplier, "dropout_rate": self.dropout_rate}

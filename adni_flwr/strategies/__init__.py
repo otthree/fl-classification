@@ -1,10 +1,10 @@
 """FL Strategies package for ADNI Federated Learning."""
 
 from .base import ClientStrategyBase, FLStrategyBase, StrategyAwareClient
+from .differential_privacy import DifferentialPrivacyClient, DifferentialPrivacyStrategy
 from .factory import StrategyConfigValidator, StrategyFactory
 from .fedavg import FedAvgClient, FedAvgStrategy
 from .fedprox import FedProxClient, FedProxStrategy
-from .secagg import SecAggClient, SecAggStrategy
 from .secaggplus import SecAggPlusClient, SecAggPlusFlowerClient, SecAggPlusStrategy, create_secagg_plus_client_fn
 
 __all__ = [
@@ -15,8 +15,8 @@ __all__ = [
     "FedAvgClient",
     "FedProxStrategy",
     "FedProxClient",
-    "SecAggStrategy",
-    "SecAggClient",
+    "DifferentialPrivacyStrategy",
+    "DifferentialPrivacyClient",
     "SecAggPlusStrategy",
     "SecAggPlusClient",
     "SecAggPlusFlowerClient",

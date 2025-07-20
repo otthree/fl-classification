@@ -8,9 +8,9 @@ import torch.nn as nn
 from adni_classification.config.config import Config
 
 from .base import ClientStrategyBase, FLStrategyBase
+from .differential_privacy import DifferentialPrivacyClient, DifferentialPrivacyStrategy
 from .fedavg import FedAvgClient, FedAvgStrategy
 from .fedprox import FedProxClient, FedProxStrategy
-from .secagg import SecAggClient, SecAggStrategy
 from .secaggplus import SecAggPlusClient, SecAggPlusStrategy
 
 
@@ -21,7 +21,7 @@ class StrategyFactory:
     SERVER_STRATEGIES = {
         "fedavg": FedAvgStrategy,
         "fedprox": FedProxStrategy,
-        "secagg": SecAggStrategy,
+        "differential_privacy": DifferentialPrivacyStrategy,
         "secagg+": SecAggPlusStrategy,
         "secaggplus": SecAggPlusStrategy,  # Alternative name
     }
@@ -29,7 +29,7 @@ class StrategyFactory:
     CLIENT_STRATEGIES = {
         "fedavg": FedAvgClient,
         "fedprox": FedProxClient,
-        "secagg": SecAggClient,
+        "differential_privacy": DifferentialPrivacyClient,
         "secagg+": SecAggPlusClient,
         "secaggplus": SecAggPlusClient,  # Alternative name
     }
@@ -141,9 +141,9 @@ class StrategyFactory:
         if strategy_name == "fedprox":
             params.setdefault("mu", getattr(config.fl, "fedprox_mu", 0.01))
 
-        elif strategy_name == "secagg":
-            params.setdefault("noise_multiplier", getattr(config.fl, "secagg_noise_multiplier", 0.1))
-            params.setdefault("dropout_rate", getattr(config.fl, "secagg_dropout_rate", 0.0))
+        elif strategy_name == "differential_privacy":
+            params.setdefault("noise_multiplier", getattr(config.fl, "dp_noise_multiplier", 0.1))
+            params.setdefault("dropout_rate", getattr(config.fl, "dp_dropout_rate", 0.0))
 
         elif strategy_name in ["secagg+", "secaggplus"]:
             # SecAgg+ parameters
@@ -205,8 +205,8 @@ class StrategyFactory:
 
         if strategy_name == "fedprox":
             return validator.validate_fedprox_config(config)
-        elif strategy_name == "secagg":
-            return validator.validate_secagg_config(config)
+        elif strategy_name == "differential_privacy":
+            return validator.validate_differential_privacy_config(config)
         elif strategy_name in ["secagg+", "secaggplus"]:
             return validator.validate_secaggplus_config(config)
         else:
@@ -236,8 +236,8 @@ class StrategyConfigValidator:
         return True
 
     @staticmethod
-    def validate_secagg_config(config: Config) -> bool:
-        """Validate SecAgg configuration.
+    def validate_differential_privacy_config(config: Config) -> bool:
+        """Validate Differential Privacy configuration.
 
         Args:
             config: Configuration object
@@ -248,14 +248,16 @@ class StrategyConfigValidator:
         Raises:
             ValueError: If configuration is invalid
         """
-        noise_multiplier = getattr(config.fl, "secagg_noise_multiplier", 0.1)
-        dropout_rate = getattr(config.fl, "secagg_dropout_rate", 0.0)
+        noise_multiplier = getattr(config.fl, "dp_noise_multiplier", 0.1)
+        dropout_rate = getattr(config.fl, "dp_dropout_rate", 0.0)
 
         if not isinstance(noise_multiplier, (int, float)) or noise_multiplier < 0:
-            raise ValueError(f"SecAgg noise_multiplier must be a non-negative number, got: {noise_multiplier}")
+            raise ValueError(
+                f"Differential Privacy noise_multiplier must be a non-negative number, got: {noise_multiplier}"
+            )
 
         if not isinstance(dropout_rate, (int, float)) or not (0 <= dropout_rate <= 1):
-            raise ValueError(f"SecAgg dropout_rate must be a number in [0, 1], got: {dropout_rate}")
+            raise ValueError(f"Differential Privacy dropout_rate must be a number in [0, 1], got: {dropout_rate}")
 
         return True
 

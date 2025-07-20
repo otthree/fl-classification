@@ -100,7 +100,7 @@ class FLConfig:
     """Federated Learning configuration."""
 
     num_rounds: int = 10
-    strategy: str = "fedavg"  # fedavg, fedprox, secagg, secagg+, secaggplus
+    strategy: str = "fedavg"  # fedavg, fedprox, differential_privacy, secagg+, secaggplus
     fraction_fit: float = 1.0
     fraction_evaluate: float = 1.0
     min_fit_clients: int = 2
@@ -114,9 +114,9 @@ class FLConfig:
     # FedProx specific parameters
     fedprox_mu: float = 0.01
 
-    # SecAgg (original - differential privacy) specific parameters
-    secagg_noise_multiplier: float = 0.1
-    secagg_dropout_rate: float = 0.0
+    # Differential Privacy specific parameters
+    dp_noise_multiplier: float = 0.1
+    dp_dropout_rate: float = 0.0
 
     # SecAgg+ (real secure aggregation) specific parameters
     secagg_num_shares: int = 3  # Number of secret shares for each client
