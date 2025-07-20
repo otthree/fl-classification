@@ -39,6 +39,7 @@ dependencies = [
     "flwr[simulation]>=1.18.0",
     "flwr-datasets[vision]>=0.5.0",
     "filelock>=3.15.0",
+    "loguru>=0.7.0",
 ]
 
 [project.optional-dependencies]
@@ -183,12 +184,12 @@ packages = ["adni_classification", "adni_flwr"]
 publisher = "tin-hoang"
 
 [tool.flwr.app.components]
-serverapp = "adni_flwr.server_app:secagg_plus_app"
-clientapp = "adni_flwr.client_app:secagg_plus_app"
+serverapp = "adni_flwr.server_app:app"
+clientapp = "adni_flwr.client_app:app"
 
 [tool.flwr.app.config]
-client-config-files = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-secaggplus/client1.yaml,configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-secaggplus/client2.yaml,configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-secaggplus/client3.yaml"
-server-config-file = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-secaggplus/fl_server.yaml"
+client-config-files = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp/client1.yaml,configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp/client2.yaml,configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp/client3.yaml"
+server-config-file = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp/fl_server.yaml"
 
 [tool.flwr.federations]
 default = "local-simulation-gpu"
