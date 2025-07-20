@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/Tin-Hoang/fl-adni-classification/discussions
+    about: For general questions and community discussions about federated learning and ADNI classification
+  - name: 📚 Documentation
+    url: https://github.com/Tin-Hoang/fl-adni-classification/blob/dev/README.md
+    about: Check the README and documentation first
+  - name: 🔬 Research Papers
+    url: https://github.com/Tin-Hoang/fl-adni-classification/blob/dev/docs/
+    about: Browse research documentation and methodology
