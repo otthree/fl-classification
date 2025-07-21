@@ -89,8 +89,18 @@ def create_automatic_output_dir(checkpoint_paths: List[str], base_dir: str = "ev
     if len(checkpoint_paths) == 1:
         # Single checkpoint - use existing logic
         checkpoint_path = checkpoint_paths[0]
+        # Extract the experiment directory name - handle both old and new formats
         checkpoint_dir = os.path.dirname(checkpoint_path)
-        parent_dir_name = os.path.basename(checkpoint_dir)
+        checkpoint_dir_name = os.path.basename(checkpoint_dir)
+
+        # Check if checkpoint is in a "checkpoints" subdirectory (new format)
+        if checkpoint_dir_name == "checkpoints":
+            # New format: outputs/experiment-name/checkpoints/checkpoint.pt
+            experiment_dir = os.path.dirname(checkpoint_dir)
+            parent_dir_name = os.path.basename(experiment_dir)
+        else:
+            # Old format: outputs_centralized/experiment-name/checkpoint.pth
+            parent_dir_name = checkpoint_dir_name
 
         # Extract checkpoint type from filename
         checkpoint_filename = os.path.basename(checkpoint_path)
@@ -121,7 +131,19 @@ def create_automatic_output_dir(checkpoint_paths: List[str], base_dir: str = "ev
         # Try to extract common experiment name from checkpoint paths
         common_parts = []
         for path in checkpoint_paths:
-            dir_name = os.path.basename(os.path.dirname(path))
+            # Extract the experiment directory name - handle both old and new formats
+            checkpoint_dir = os.path.dirname(path)
+            checkpoint_dir_name = os.path.basename(checkpoint_dir)
+
+            # Check if checkpoint is in a "checkpoints" subdirectory (new format)
+            if checkpoint_dir_name == "checkpoints":
+                # New format: outputs/experiment-name/checkpoints/checkpoint.pt
+                experiment_dir = os.path.dirname(checkpoint_dir)
+                dir_name = os.path.basename(experiment_dir)
+            else:
+                # Old format: outputs_centralized/experiment-name/checkpoint.pth
+                dir_name = checkpoint_dir_name
+
             common_parts.append(dir_name)
 
         # Find common base experiment name
@@ -133,8 +155,8 @@ def create_automatic_output_dir(checkpoint_paths: List[str], base_dir: str = "ev
 
             # Method 1: Remove seed-specific parts and timestamps
             first_name = common_parts[0]
-            # Remove patterns like "_seed1", "_seed01", "_seed101", timestamps, etc.
-            base_candidate = re.sub(r'_seed\d+|_fold[-_]?\d+|_cv[-_]?\d+|_\d{8}_\d{6}', '', first_name)
+            # Remove patterns like "_seed1", "-seed01", "_seed101", timestamps, etc.
+            base_candidate = re.sub(r'[-_]seed\d+|_fold[-_]?\d+|_cv[-_]?\d+|_\d{8}_\d{6}', '', first_name)
 
             # Verify this base name is common across all checkpoint directories
             if base_candidate and len(base_candidate) > 5:  # Ensure meaningful name
@@ -167,19 +189,36 @@ def create_automatic_output_dir(checkpoint_paths: List[str], base_dir: str = "ev
             # Method 3: Extract meaningful parts if still no base name
             if not base_name:
                 # Try to extract key components (model name, dataset info, etc.)
-                first_parts = first_name.split('_')
-                meaningful_parts = []
+                # Split by both underscores and hyphens, then rejoin appropriately
+                import re
+                # Use a more sophisticated approach: remove seed/timestamp patterns first
+                cleaned_name = re.sub(r'[-_]seed\d+|_\d{8}_\d{6}', '', first_name)
 
-                for part in first_parts:
-                    # Skip seed, timestamp, and fold patterns
-                    if not re.match(r'seed\d+|\d{8}|\d{6}|fold\d+|cv\d+', part):
-                        meaningful_parts.append(part)
-                        # Stop before we get too specific
-                        if len(meaningful_parts) >= 4:
-                            break
+                # If that gives us a reasonable name, use it
+                if cleaned_name and len(cleaned_name) > 5:
+                    base_name = cleaned_name
+                else:
+                    # Fallback: split and filter parts
+                    first_parts = re.split(r'[-_]', first_name)
+                    meaningful_parts = []
 
-                if meaningful_parts:
-                    base_name = '_'.join(meaningful_parts)
+                    for part in first_parts:
+                        # Skip seed, timestamp, and fold patterns
+                        if not re.match(r'seed\d+|\d{8}|\d{6}|fold\d+|cv\d+', part):
+                            meaningful_parts.append(part)
+                            # Stop before we get too specific
+                            if len(meaningful_parts) >= 6:
+                                break
+
+                    if meaningful_parts:
+                        # Try to preserve the original separator style
+                        if '-' in first_name and '_' in first_name:
+                            # Mixed separators - use hyphens for main parts, underscores for details
+                            base_name = '-'.join(meaningful_parts[:3]) + '_' + '_'.join(meaningful_parts[3:])
+                        elif '-' in first_name:
+                            base_name = '-'.join(meaningful_parts)
+                        else:
+                            base_name = '_'.join(meaningful_parts)
 
             # Fallback
             if not base_name or len(base_name) < 3:
