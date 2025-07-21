@@ -8,6 +8,7 @@ from flwr.common import EvaluateIns, FitIns, FitRes, Parameters, ndarrays_to_par
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
+from loguru import logger
 from torch.utils.data import DataLoader
 
 from adni_classification.config.config import Config
@@ -90,10 +91,10 @@ class FedProxStrategy(FLStrategyBase):
         # Instead of delegating to fedavg_strategy (which returns None),
         # provide initial parameters from our server model
 
-        print("FedProxStrategy: Initializing parameters from server model")
+        logger.info("FedProxStrategy: Initializing parameters from server model")
         ndarrays = get_params(self.model)
-        print(f"FedProxStrategy: Sending {len(ndarrays)} parameter arrays to clients")
-        print(f"FedProxStrategy: First few parameter shapes: {[arr.shape for arr in ndarrays[:5]]}")
+        logger.info(f"FedProxStrategy: Sending {len(ndarrays)} parameter arrays to clients")
+        logger.debug(f"FedProxStrategy: First few parameter shapes: {[arr.shape for arr in ndarrays[:5]]}")
 
         return ndarrays_to_parameters(ndarrays)
 
@@ -157,9 +158,9 @@ class FedProxStrategy(FLStrategyBase):
             self.wandb_logger.log_metrics(metrics, prefix="server", step=server_round)
 
         # Print server model's current metrics
-        print(f"Server model metrics after round {server_round} (FedProx mu={self.mu}):")
+        logger.info(f"Server model metrics after round {server_round} (FedProx mu={self.mu}):")
         for metric_name, metric_value in metrics.items():
-            print(f"  {metric_name}: {metric_value}")
+            logger.info(f"  {metric_name}: {metric_value}")
 
         # Save frequency checkpoint
         if (
@@ -239,7 +240,7 @@ class FedProxClient(ClientStrategyBase):
         # Initialize mixed precision scaler
         self.scaler = torch.cuda.amp.GradScaler() if self.mixed_precision else None
 
-        print(f"FedProxClient initialized with mu={self.mu}")
+        logger.info(f"FedProxClient initialized with mu={self.mu}")
 
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
@@ -272,7 +273,7 @@ class FedProxClient(ClientStrategyBase):
         # Update mu if specified in round config
         if "fedprox_mu" in round_config:
             self.mu = round_config["fedprox_mu"]
-            print(f"Updated mu to {self.mu} for this round")
+            logger.info(f"Updated mu to {self.mu} for this round")
 
     def compute_proximal_loss(self) -> torch.Tensor:
         """Compute the proximal regularization term.
@@ -361,12 +362,12 @@ class FedProxClient(ClientStrategyBase):
 
             current_lr_after = self.optimizer.param_groups[0]["lr"]
             if current_lr_before != current_lr_after:
-                print(
+                logger.info(
                     f"FL Round {getattr(self, 'current_fl_round', '?')}: "
                     f"LR changed from {current_lr_before:.8f} to {current_lr_after:.8f}"
                 )
 
-        print(
+        logger.info(
             f"  Epoch {epoch + 1}/{total_epochs}: "
             f"classification_loss={avg_loss:.4f}, "
             f"proximal_loss={avg_proximal_loss:.4f}, "
@@ -400,11 +401,11 @@ class FedProxClient(ClientStrategyBase):
         """
         if "mu" in checkpoint_data:
             self.mu = checkpoint_data["mu"]
-            print(f"Restored FedProx mu parameter: {self.mu}")
+            logger.info(f"Restored FedProx mu parameter: {self.mu}")
 
         if "global_model_params" in checkpoint_data:
             self.global_params = checkpoint_data["global_model_params"]
             if self.global_params:
-                print(f"Restored FedProx global model parameters for {len(self.global_params)} layers")
+                logger.info(f"Restored FedProx global model parameters for {len(self.global_params)} layers")
             else:
-                print("Restored FedProx global model parameters: None")
+                logger.info("Restored FedProx global model parameters: None")

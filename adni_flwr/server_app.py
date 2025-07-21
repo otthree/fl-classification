@@ -8,6 +8,7 @@ import torch
 from flwr.common import Context, Metrics, ndarrays_to_parameters
 from flwr.server import Grid, LegacyContext, ServerApp, ServerAppComponents, ServerConfig
 from flwr.server.workflow import DefaultWorkflow
+from loguru import logger
 
 from adni_classification.config.config import Config
 from adni_flwr.server_fn import safe_weighted_average
@@ -31,7 +32,7 @@ class FLWandbLogger:
         self.wandb_enabled = WANDB_AVAILABLE and config.wandb.use_wandb
         self.run = None
         self.run_id = None
-        print(f"WandB logging: {'enabled' if self.wandb_enabled else 'disabled'}")
+        logger.info(f"WandB logging: {'enabled' if self.wandb_enabled else 'disabled'}")
 
     def init_wandb(self, enable_shared_mode: bool = True):
         """Initialize WandB run.
@@ -53,7 +54,7 @@ class FLWandbLogger:
                     x_primary=True,
                     x_label="server",  # Unique label for server node
                 )
-                print("Initializing WandB in shared mode as primary node (server)")
+                logger.info("Initializing WandB in shared mode as primary node (server)")
 
             # Initialize wandb with full configuration
             self.run = wandb.init(
@@ -68,13 +69,13 @@ class FLWandbLogger:
 
             if self.run:
                 self.run_id = self.run.id
-                print(f"WandB run initialized successfully. Run ID: {self.run_id}")
+                logger.success(f"WandB run initialized successfully. Run ID: {self.run_id}")
                 if enable_shared_mode:
-                    print(f"Clients can join this run using run ID: {self.run_id}")
+                    logger.info(f"Clients can join this run using run ID: {self.run_id}")
                 return self.run_id
 
         except Exception as e:
-            print(f"Error initializing WandB: {e}")
+            logger.error(f"Error initializing WandB: {e}")
             self.wandb_enabled = False
             return None
 
@@ -100,16 +101,16 @@ class FLWandbLogger:
             else:
                 wandb.log(prefixed_metrics)
         except Exception as e:
-            print(f"Error logging metrics to WandB: {e}")
+            logger.error(f"Error logging metrics to WandB: {e}")
 
     def finish(self):
         """Finish WandB run."""
         if self.wandb_enabled and self.run:
             try:
                 wandb.finish()
-                print("WandB run finished successfully")
+                logger.success("WandB run finished successfully")
             except Exception as e:
-                print(f"Error finishing WandB run: {e}")
+                logger.error(f"Error finishing WandB run: {e}")
 
 
 # Define metric aggregation function
@@ -121,16 +122,16 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     """
     try:
         if not metrics:
-            print("WARNING: weighted_average received empty metrics list")
+            logger.warning("weighted_average received empty metrics list")
             return {}
 
-        print(f"Weighted average received {len(metrics)} metrics")
+        logger.info(f"Weighted average received {len(metrics)} metrics")
 
         filtered_metrics = [
             (num_examples, dict(m)) for num_examples, m in metrics if isinstance(m, (dict, Mapping)) and m
         ]
         if not filtered_metrics:
-            print("WARNING: weighted_average filtered metrics list is empty after filtering")
+            logger.warning("weighted_average filtered metrics list is empty after filtering")
             return {}
 
         # Get all metric names that are present in at least one client
@@ -138,7 +139,7 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
         for _, m in filtered_metrics:
             all_metric_names.update(name for name in m.keys() if isinstance(name, str))
 
-        print(f"Metric names present: {all_metric_names}")
+        logger.info(f"Metric names present: {all_metric_names}")
 
         acc_metrics = {}
         for name in all_metric_names:
@@ -165,7 +166,7 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
                         if total_examples > 0:
                             acc_metrics[name] = sum(weighted_values) / total_examples
                 except Exception as e:
-                    print(f"Error processing scalar metric '{name}': {e}")
+                    logger.error(f"Error processing scalar metric '{name}': {e}")
 
             # Pass through string metrics (like JSON-encoded lists)
             elif name in ["predictions_json", "labels_json", "sample_info", "client_id"] and isinstance(
@@ -173,7 +174,7 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
             ):
                 # Use the first client's value (arbitrary choice)
                 acc_metrics[name] = sample_value
-                print(f"Passing through string metric '{name}' with length {len(sample_value)}")
+                logger.info(f"Passing through string metric '{name}' with length {len(sample_value)}")
 
             # Other scalar values (like num_classes)
             elif name == "num_classes" and isinstance(sample_value, (int, float)):
@@ -182,17 +183,17 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
 
             # Error for other types that shouldn't be here
             else:
-                print(
+                logger.warning(
                     f"Skipping metric '{name}' with type {type(sample_value).__name__} - not supported for aggregation"
                 )
 
-        print(f"Aggregated metrics keys: {list(acc_metrics.keys())}")
+        logger.info(f"Aggregated metrics keys: {list(acc_metrics.keys())}")
         return acc_metrics
     except Exception as e:
         import traceback
 
-        print(f"Error in weighted_average: {e}")
-        print(traceback.format_exc())
+        logger.error(f"Error in weighted_average: {e}")
+        logger.error(traceback.format_exc())
         return {}
 
 
@@ -229,7 +230,7 @@ def server_fn(context: Context):
             )
 
         strategy_name = config.fl.strategy
-        print(f"Using FL strategy: {strategy_name}")
+        logger.info(f"Using FL strategy: {strategy_name}")
 
         # AUTO-DETECTION: If SecAgg+ is detected, raise error with helpful message
         if strategy_name.lower() in ["secagg+", "secaggplus"]:
@@ -247,7 +248,7 @@ def server_fn(context: Context):
             )
 
         # For regular strategies (FedAvg, FedProx, SecAgg), use standard approach
-        print(f"📊 Using regular strategy execution for: {strategy_name}")
+        logger.info(f"📊 Using regular strategy execution for: {strategy_name}")
 
         # Create WandB logger with the Config object
         wandb_logger = FLWandbLogger(config)
@@ -256,9 +257,9 @@ def server_fn(context: Context):
 
         # Store run ID for sharing with clients through FL communication
         if run_id:
-            print(f"WandB run ID {run_id} will be shared with clients through FL communication")
+            logger.info(f"WandB run ID {run_id} will be shared with clients through FL communication")
         else:
-            print("Warning: Failed to get WandB run ID for sharing with clients")
+            logger.warning("Failed to get WandB run ID for sharing with clients")
 
         # Initialize model using the Config object
         model = load_model(config)  # Assuming load_model can accept the Config object
@@ -291,8 +292,8 @@ def server_fn(context: Context):
                 fit_metrics_aggregation_fn=weighted_average,
             )
         except Exception as e:
-            print(f"Error creating strategy with original weighted_average: {e}")
-            print("Falling back to safe_weighted_average...")
+            logger.error(f"Error creating strategy with original weighted_average: {e}")
+            logger.info("Falling back to safe_weighted_average...")
 
             # If that fails, try with our safe implementation
             strategy = StrategyFactory.create_server_strategy(
@@ -313,8 +314,8 @@ def server_fn(context: Context):
     except Exception as e:
         import traceback
 
-        print(f"Error in server_fn: {e}")
-        print(traceback.format_exc())
+        logger.error(f"Error in server_fn: {e}")
+        logger.error(traceback.format_exc())
         # Still need to return a ServerAppComponents object
         raise
 
@@ -328,7 +329,7 @@ def secagg_plus_server_main(grid: Grid, context: Context):
         grid: Flower Grid for workflow execution
         context: Context containing server configuration
     """
-    print("🔒 SecAgg+ Server - Starting workflow-based execution")
+    logger.info("🔒 SecAgg+ Server - Starting workflow-based execution")
 
     try:
         # Get server config file from app config
@@ -357,7 +358,7 @@ def secagg_plus_server_main(grid: Grid, context: Context):
         num_rounds = fl_config.num_rounds
         strategy_name = fl_config.strategy
 
-        print(f"🔒 SecAgg+ Server - Using strategy: {strategy_name}")
+        logger.info(f"🔒 SecAgg+ Server - Using strategy: {strategy_name}")
 
         # Validate it's actually SecAgg+
         if strategy_name.lower() not in ["secagg+", "secaggplus"]:
@@ -381,7 +382,7 @@ def secagg_plus_server_main(grid: Grid, context: Context):
             raise ValueError("SecAgg+ strategy does not have get_secagg_workflow method")
 
         secagg_workflow = strategy.get_secagg_workflow()
-        print(f"✅ Retrieved SecAgg+ workflow: {type(secagg_workflow).__name__}")
+        logger.success(f"✅ Retrieved SecAgg+ workflow: {type(secagg_workflow).__name__}")
 
         # Create the main workflow with SecAgg+ fit workflow
         workflow = DefaultWorkflow(fit_workflow=secagg_workflow)
@@ -394,12 +395,12 @@ def secagg_plus_server_main(grid: Grid, context: Context):
         )
 
         # Execute the SecAgg+ workflow
-        print("🚀 Executing SecAgg+ workflow...")
+        logger.info("🚀 Executing SecAgg+ workflow...")
         workflow(grid, legacy_context)
-        print("✅ SecAgg+ workflow completed successfully!")
+        logger.success("✅ SecAgg+ workflow completed successfully!")
 
     except Exception as e:
-        print(f"❌ SecAgg+ server execution failed: {e}")
+        logger.error(f"❌ SecAgg+ server execution failed: {e}")
         import traceback
 
         traceback.print_exc()
@@ -416,7 +417,7 @@ secagg_plus_app = ServerApp()
 @secagg_plus_app.main()
 def main(grid: Grid, context: Context):
     """Main entry point for SecAgg+ server app using proper Flower workflow pattern."""
-    print("🔒 SecAgg+ Server - Starting workflow-based execution")
+    logger.info("🔒 SecAgg+ Server - Starting workflow-based execution")
     secagg_plus_server_main(grid, context)
 
 
@@ -444,14 +445,14 @@ def auto_main(grid: Grid, context: Context):
             )
 
         strategy_name = config.fl.strategy
-        print(f"🔍 Auto-detected strategy: {strategy_name}")
+        logger.info(f"🔍 Auto-detected strategy: {strategy_name}")
 
         if strategy_name.lower() in ["secagg+", "secaggplus"]:
-            print("🔒 Using SecAgg+ workflow execution")
+            logger.info("🔒 Using SecAgg+ workflow execution")
             secagg_plus_server_main(grid, context)
         else:
-            print("📊 Regular strategies require the standard ServerApp pattern")
-            print("Use: flower-server-app adni_flwr.server_app:app")
+            logger.error("📊 Regular strategies require the standard ServerApp pattern")
+            logger.error("Use: flower-server-app adni_flwr.server_app:app")
             raise ValueError(
                 f"Regular strategy '{strategy_name}' cannot be used with auto_app.\n"
                 f"Regular strategies (fedavg, fedprox, secagg) require the standard ServerApp pattern.\n"
@@ -462,6 +463,6 @@ def auto_main(grid: Grid, context: Context):
     except Exception as e:
         import traceback
 
-        print(f"❌ Auto-detection failed: {e}")
-        print(traceback.format_exc())
+        logger.error(f"❌ Auto-detection failed: {e}")
+        logger.error(traceback.format_exc())
         raise

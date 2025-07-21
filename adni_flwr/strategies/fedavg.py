@@ -8,6 +8,7 @@ from flwr.common import EvaluateIns, FitIns, FitRes, Parameters, ndarrays_to_par
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
+from loguru import logger
 from torch.utils.data import DataLoader
 
 from adni_classification.config.config import Config
@@ -82,10 +83,10 @@ class FedAvgStrategy(FLStrategyBase):
         # Instead of delegating to fedavg_strategy (which returns None),
         # provide initial parameters from our server model
 
-        print("FedAvgStrategy: Initializing parameters from server model")
+        logger.info("FedAvgStrategy: Initializing parameters from server model")
         ndarrays = get_params(self.model)
-        print(f"FedAvgStrategy: Sending {len(ndarrays)} parameter arrays to clients")
-        print(f"FedAvgStrategy: First few parameter shapes: {[arr.shape for arr in ndarrays[:5]]}")
+        logger.info(f"FedAvgStrategy: Sending {len(ndarrays)} parameter arrays to clients")
+        logger.debug(f"FedAvgStrategy: First few parameter shapes: {[arr.shape for arr in ndarrays[:5]]}")
 
         return ndarrays_to_parameters(ndarrays)
 
@@ -147,9 +148,9 @@ class FedAvgStrategy(FLStrategyBase):
             self.wandb_logger.log_metrics(metrics, prefix="server", step=server_round)
 
         # Print server model's current metrics
-        print(f"Server model metrics after round {server_round}:")
+        logger.info(f"Server model metrics after round {server_round}:")
         for metric_name, metric_value in metrics.items():
-            print(f"  {metric_name}: {metric_value}")
+            logger.info(f"  {metric_name}: {metric_value}")
 
         # Save frequency checkpoint
         if (
@@ -235,33 +236,33 @@ class FedAvgClient(ClientStrategyBase):
             server_params: Parameters from server
             round_config: Configuration for this round
         """
-        print(f"FedAvgClient: Preparing for round {round_config.get('server_round', 'unknown')}")
-        print(f"FedAvgClient: Received server_params type: {type(server_params)}")
+        logger.info(f"FedAvgClient: Preparing for round {round_config.get('server_round', 'unknown')}")
+        logger.debug(f"FedAvgClient: Received server_params type: {type(server_params)}")
 
         # Debug the server_params structure
         if hasattr(server_params, "tensors"):
-            print(f"FedAvgClient: server_params.tensors length: {len(server_params.tensors)}")
+            logger.debug(f"FedAvgClient: server_params.tensors length: {len(server_params.tensors)}")
             if len(server_params.tensors) > 0:
-                print(f"FedAvgClient: First few tensor shapes: {[t.shape for t in server_params.tensors[:5]]}")
+                logger.debug(f"FedAvgClient: First few tensor shapes: {[t.shape for t in server_params.tensors[:5]]}")
             else:
-                print("FedAvgClient: WARNING - server_params.tensors is empty!")
+                logger.warning("FedAvgClient: server_params.tensors is empty!")
         elif isinstance(server_params, list):
-            print(f"FedAvgClient: server_params list length: {len(server_params)}")
+            logger.debug(f"FedAvgClient: server_params list length: {len(server_params)}")
             if len(server_params) > 0:
-                print(f"FedAvgClient: First few array shapes: {[arr.shape for arr in server_params[:5]]}")
+                logger.debug(f"FedAvgClient: First few array shapes: {[arr.shape for arr in server_params[:5]]}")
             else:
-                print("FedAvgClient: WARNING - server_params list is empty!")
+                logger.warning("FedAvgClient: server_params list is empty!")
         else:
-            print(f"FedAvgClient: Unexpected server_params structure: {server_params}")
+            logger.warning(f"FedAvgClient: Unexpected server_params structure: {server_params}")
 
         # Convert parameters to numpy arrays safely
         param_arrays = safe_parameters_to_ndarrays(server_params)
 
-        print(f"FedAvgClient: Converted to {len(param_arrays)} parameter arrays")
+        logger.debug(f"FedAvgClient: Converted to {len(param_arrays)} parameter arrays")
         if len(param_arrays) > 0:
-            print(f"FedAvgClient: First few parameter shapes: {[arr.shape for arr in param_arrays[:5]]}")
+            logger.debug(f"FedAvgClient: First few parameter shapes: {[arr.shape for arr in param_arrays[:5]]}")
         else:
-            print("FedAvgClient: ERROR - No parameters after conversion!")
+            logger.error("FedAvgClient: No parameters after conversion!")
 
         # Debug client model before loading parameters
         from adni_flwr.task import debug_model_architecture
@@ -342,7 +343,7 @@ class FedAvgClient(ClientStrategyBase):
 
             current_lr_after = self.optimizer.param_groups[0]["lr"]
             if current_lr_before != current_lr_after:
-                print(
+                logger.info(
                     f"FL Round {getattr(self, 'current_fl_round', '?')}: "
                     f"LR changed from {current_lr_before:.8f} to {current_lr_after:.8f}"
                 )

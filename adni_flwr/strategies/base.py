@@ -30,6 +30,10 @@ from adni_flwr.task import (
     set_params,
     test_with_predictions,
 )
+from adni_flwr.utils.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 try:
     import wandb
@@ -139,18 +143,18 @@ class FLStrategyBase(Strategy, ABC):
             server_round: Current server round number
         """
         if self.is_final_round(server_round):
-            print(f"🎉 Server: Final round {server_round} completed! Finishing WandB logging after evaluation...")
-            print("🏁 Server: Coordinating experiment completion (clients will not auto-finish WandB)")
+            logger.info(f"🎉 Server: Final round {server_round} completed! Finishing WandB logging after evaluation...")
+            logger.info("🏁 Server: Coordinating experiment completion (clients will not auto-finish WandB)")
 
             if self.wandb_logger:
                 # Check if already finished to avoid multiple finish calls
                 if hasattr(self.wandb_logger, "_finished") and self.wandb_logger._finished:
-                    print("⚠️ Server: WandB already finished, skipping...")
+                    logger.warning("⚠️ Server: WandB already finished, skipping...")
                     return
 
                 try:
                     # Add a small delay to ensure clients have time to signal completion
-                    print("⏳ Server: Waiting 3 seconds for client completion signals...")
+                    logger.info("⏳ Server: Waiting 3 seconds for client completion signals...")
                     import time
 
                     time.sleep(3)
@@ -161,24 +165,26 @@ class FLStrategyBase(Strategy, ABC):
                     # Mark as finished to prevent duplicate calls
                     self.wandb_logger._finished = True
 
-                    print(f"✅ Server: WandB experiment finished successfully after evaluation in round {server_round}")
-                    print(
+                    logger.success(
+                        f"✅ Server: WandB experiment finished successfully after evaluation in round {server_round}"
+                    )
+                    logger.success(
                         f"🌟 Server: Federated learning experiment completed with {self.config.fl.num_rounds} rounds!"
                     )
 
                     # Additional delay to ensure WandB has time to sync
-                    print("⏳ Server: Allowing WandB sync time...")
+                    logger.info("⏳ Server: Allowing WandB sync time...")
                     time.sleep(2)
 
                 except Exception as e:
-                    print(f"⚠️ Server: Error finishing WandB run: {e}")
+                    logger.error(f"⚠️ Server: Error finishing WandB run: {e}")
             else:
-                print("⚠️ Server: No WandB logger available to finish")
+                logger.warning("⚠️ Server: No WandB logger available to finish")
 
     def _load_server_validation_data(self):
         """Load validation dataset on the server for global evaluation."""
         try:
-            print("Loading server-side validation dataset...")
+            logger.info("Loading server-side validation dataset...")
             # Load only the validation loader for server evaluation
             _, self.server_val_loader = load_data(config=self.config, batch_size=self.config.training.batch_size)
 
@@ -187,10 +193,10 @@ class FLStrategyBase(Strategy, ABC):
 
             self.criterion = create_criterion(self.config, train_dataset=None, device=self.device)
 
-            print(f"Server validation dataset loaded with {len(self.server_val_loader)} batches")
+            logger.info(f"Server validation dataset loaded with {len(self.server_val_loader)} batches")
         except Exception as e:
-            print(f"Warning: Could not load server validation data: {e}")
-            print("Global accuracy evaluation will be skipped.")
+            logger.warning(f"Warning: Could not load server validation data: {e}")
+            logger.warning("Global accuracy evaluation will be skipped.")
             self.server_val_loader = None
             self.criterion = None
 
@@ -209,7 +215,7 @@ class FLStrategyBase(Strategy, ABC):
             return None, None, None, None
 
         try:
-            print(f"Evaluating server model on validation set for round {server_round}...")
+            logger.info(f"Evaluating server model on validation set for round {server_round}...")
 
             # Evaluate the server model
             val_loss, val_accuracy, predictions, labels = test_with_predictions(
@@ -220,18 +226,18 @@ class FLStrategyBase(Strategy, ABC):
                 mixed_precision=self.config.training.mixed_precision,
             )
 
-            print(f"Server validation results - Loss: {val_loss:.4f}, Accuracy: {val_accuracy:.2f}%")
+            logger.info(f"Server validation results - Loss: {val_loss:.4f}, Accuracy: {val_accuracy:.2f}%")
             return val_loss, val_accuracy, predictions, labels
 
         except Exception as e:
-            print(f"Error evaluating server model: {e}")
+            logger.error(f"Error evaluating server model: {e}")
             return None, None, None, None
 
     def _save_checkpoint(self, model_state_dict: dict, round_num: int):
         """Save model checkpoint."""
         checkpoint_path = os.path.join(self.checkpoint_dir, f"round_{round_num}.pt")
         torch.save(model_state_dict, checkpoint_path)
-        print(f"Saved checkpoint for round {round_num} to {checkpoint_path}")
+        logger.info(f"Saved checkpoint for round {round_num} to {checkpoint_path}")
 
     def _save_best_checkpoint(self, model_state_dict: dict, metric: float):
         """Save the best model checkpoint based on the given metric."""
@@ -239,7 +245,9 @@ class FLStrategyBase(Strategy, ABC):
             self.best_metric = metric
             best_checkpoint_path = os.path.join(self.checkpoint_dir, "best_model.pt")
             torch.save(model_state_dict, best_checkpoint_path)
-            print(f"Saved new best model checkpoint with {self.metric_name} {metric:.4f} to {best_checkpoint_path}")
+            logger.info(
+                f"Saved new best model checkpoint with {self.metric_name} {metric:.4f} to {best_checkpoint_path}"
+            )
 
     def aggregate_evaluate(
         self,
@@ -249,7 +257,7 @@ class FLStrategyBase(Strategy, ABC):
     ) -> Tuple[Optional[float], Dict[str, float]]:
         """Base implementation of aggregate_evaluate with comprehensive logging."""
         # Print information about results and failures
-        print(f"aggregate_evaluate: received {len(results)} results and {len(failures)} failures")
+        logger.info(f"aggregate_evaluate: received {len(results)} results and {len(failures)} failures")
 
         # Check if server should evaluate in this round based on frequency
         evaluate_frequency = getattr(self.config.fl, "evaluate_frequency", 1)
@@ -264,15 +272,17 @@ class FLStrategyBase(Strategy, ABC):
             client_metrics = eval_res.metrics
             if client_metrics and client_metrics.get("evaluation_skipped", False):
                 skipped_count += 1
-                print(
+                logger.info(
                     f"Client {client_metrics.get('client_id', 'unknown')} skipped evaluation for round {server_round}"
                 )
             else:
                 evaluated_count += 1
                 actual_results.append((client_proxy, eval_res))
 
-        print(f"Round {server_round}: {evaluated_count} clients evaluated, {skipped_count} clients skipped evaluation")
-        print(
+        logger.info(
+            f"Round {server_round}: {evaluated_count} clients evaluated, {skipped_count} clients skipped evaluation"
+        )
+        logger.info(
             f"Server evaluation: {'enabled' if should_evaluate_server else 'skipped'} for round {server_round} "
             f"(evaluating every {evaluate_frequency} rounds)"
         )
@@ -280,7 +290,7 @@ class FLStrategyBase(Strategy, ABC):
         # Print details about any failures
         if failures:
             for i, failure in enumerate(failures):
-                print(f"Failure {i + 1}: {type(failure).__name__}: {str(failure)}")
+                logger.error(f"Failure {i + 1}: {type(failure).__name__}: {str(failure)}")
 
         # Initialize server evaluation variables
         server_val_loss, server_val_accuracy, server_predictions, server_labels = None, None, None, None
@@ -291,7 +301,7 @@ class FLStrategyBase(Strategy, ABC):
                 server_round
             )
         else:
-            print(f"Skipping server-side evaluation for round {server_round}")
+            logger.info(f"Skipping server-side evaluation for round {server_round}")
 
         # Get strategy-specific metrics
         strategy_metrics = self.get_strategy_specific_metrics()
@@ -299,12 +309,12 @@ class FLStrategyBase(Strategy, ABC):
 
         # If no clients actually evaluated, handle gracefully
         if not actual_results:
-            print("WARNING: No clients performed evaluation in this round")
+            logger.warning("WARNING: No clients performed evaluation in this round")
 
             if should_evaluate_server and server_val_loss is not None and server_val_accuracy is not None:
-                print(f"Server validation results for round {server_round}:")
-                print(f"  Server validation loss: {server_val_loss:.4f}")
-                print(f"  Server validation accuracy: {server_val_accuracy:.2f}%")
+                logger.info(f"Server validation results for round {server_round}:")
+                logger.info(f"  Server validation loss: {server_val_loss:.4f}")
+                logger.info(f"  Server validation accuracy: {server_val_accuracy:.2f}%")
 
                 # Log server metrics even if no clients evaluated
                 if self.wandb_logger:
@@ -333,14 +343,14 @@ class FLStrategyBase(Strategy, ABC):
                     try:
                         client_metrics = eval_res.metrics
                         if not client_metrics:
-                            print("WARNING: Client metrics are empty for a client")
+                            logger.warning("WARNING: Client metrics are empty for a client")
                             continue
 
                         client_id = client_metrics.get("client_id", "unknown")
-                        print(f"Processing metrics from client {client_id}")
+                        logger.info(f"Processing metrics from client {client_id}")
 
                         # Debug: print all keys in client metrics
-                        print(f"Client {client_id} metrics keys: {list(client_metrics.keys())}")
+                        logger.info(f"Client {client_id} metrics keys: {list(client_metrics.keys())}")
 
                         # Extract and decode JSON predictions and labels if present for
                         # client-specific confusion matrices
@@ -355,7 +365,7 @@ class FLStrategyBase(Strategy, ABC):
                                 predictions = json.loads(predictions_json)
                                 labels = json.loads(labels_json)
 
-                                print(
+                                logger.info(
                                     f"Client {client_id}: Decoded {len(predictions)} predictions and "
                                     f"{len(labels)} labels. Sample info: {sample_info}"
                                 )
@@ -398,7 +408,7 @@ class FLStrategyBase(Strategy, ABC):
                                     )
                                     plt.close(client_fig)
                             except Exception as e:
-                                print(f"Error decoding predictions/labels from client {client_id}: {e}")
+                                logger.error(f"Error decoding predictions/labels from client {client_id}: {e}")
 
                         # Log other scalar metrics (excluding the encoded data and metadata)
                         try:
@@ -424,9 +434,9 @@ class FLStrategyBase(Strategy, ABC):
                                 metrics_to_log, prefix=f"client_{client_id}/eval", step=server_round
                             )
                         except Exception as e:
-                            print(f"Error logging metrics for client {client_id}: {e}")
+                            logger.error(f"Error logging metrics for client {client_id}: {e}")
                     except Exception as e:
-                        print(f"Error processing evaluation result: {e}")
+                        logger.error(f"Error processing evaluation result: {e}")
 
             # Create and log global confusion matrix using server evaluation (only if server evaluated)
             if should_evaluate_server and server_predictions is not None and server_labels is not None:
@@ -435,7 +445,7 @@ class FLStrategyBase(Strategy, ABC):
                     num_classes = 2 if self.config.data.classification_mode == "CN_AD" else 3
                     class_names = ["CN", "AD"] if num_classes == 2 else ["CN", "MCI", "AD"]
 
-                    print(
+                    logger.info(
                         f"Creating global confusion matrix from server evaluation with "
                         f"{len(server_predictions)} predictions"
                     )
@@ -467,19 +477,19 @@ class FLStrategyBase(Strategy, ABC):
                         self.wandb_logger.log_metrics(global_metrics, prefix="server", step=server_round)
 
                     plt.close(global_fig)
-                    print(
+                    logger.info(
                         f"Logged global confusion matrix from server evaluation - Accuracy: {server_val_accuracy:.2f}%"
                     )
 
                 except Exception as e:
-                    print(f"Error creating global confusion matrix from server evaluation: {e}")
+                    logger.error(f"Error creating global confusion matrix from server evaluation: {e}")
 
             # Aggregate metrics from clients that actually evaluated using the strategy's fedavg_strategy
             aggregated_loss, aggregated_metrics = self._delegate_aggregate_evaluate(
                 server_round, actual_results, failures
             )
 
-            print(
+            logger.info(
                 f"Aggregated loss: {aggregated_loss}, metrics keys: "
                 f"{aggregated_metrics.keys() if aggregated_metrics else 'None'}"
             )
@@ -525,14 +535,14 @@ class FLStrategyBase(Strategy, ABC):
                         server_metrics.update(strategy_metrics)
                         self.wandb_logger.log_metrics(server_metrics, prefix="server", step=server_round)
                 except Exception as e:
-                    print(f"Error logging aggregated metrics: {e}")
+                    logger.error(f"Error logging aggregated metrics: {e}")
 
             # Print server model's current loss and accuracy
             if aggregated_loss is not None:
-                print(f"Server model evaluation loss after round {server_round}: {aggregated_loss:.4f}")
+                logger.info(f"Server model evaluation loss after round {server_round}: {aggregated_loss:.4f}")
             if aggregated_metrics:
                 strategy_info = f" ({strategy_name})" if strategy_name and strategy_name != "fedavg" else ""
-                print(f"Server model evaluation metrics after round {server_round}{strategy_info}:")
+                logger.info(f"Server model evaluation metrics after round {server_round}{strategy_info}:")
                 for metric_name, metric_value in aggregated_metrics.items():
                     if metric_name not in [
                         "predictions_json",
@@ -545,21 +555,21 @@ class FLStrategyBase(Strategy, ABC):
                         "evaluation_frequency",
                         "current_round",
                     ] and isinstance(metric_value, (int, float)):
-                        print(f"  {metric_name}: {metric_value:.4f}")
+                        logger.info(f"  {metric_name}: {metric_value:.4f}")
 
             # Print server-side validation results only if server evaluated
             if should_evaluate_server and server_val_loss is not None and server_val_accuracy is not None:
-                print(f"Server validation results after round {server_round}:")
-                print(f"  Server validation loss: {server_val_loss:.4f}")
-                print(f"  Server validation accuracy: {server_val_accuracy:.2f}%")
+                logger.info(f"Server validation results after round {server_round}:")
+                logger.info(f"  Server validation loss: {server_val_loss:.4f}")
+                logger.info(f"  Server validation accuracy: {server_val_accuracy:.2f}%")
 
                 # Save the best model checkpoint based on server validation accuracy
                 try:
                     self._save_best_checkpoint(self.model.state_dict(), server_val_accuracy)
                 except Exception as e:
-                    print(f"Error saving best checkpoint: {e}")
+                    logger.error(f"Error saving best checkpoint: {e}")
             elif should_evaluate_server:
-                print(f"Server evaluation was attempted but failed for round {server_round}")
+                logger.warning(f"Server evaluation was attempted but failed for round {server_round}")
 
             # Fallback to aggregated metrics if server evaluation is not available or not performed
             if not should_evaluate_server or server_val_accuracy is None:
@@ -569,9 +579,9 @@ class FLStrategyBase(Strategy, ABC):
                         if isinstance(metric_value, (int, float)):
                             self._save_best_checkpoint(self.model.state_dict(), metric_value)
                         else:
-                            print(f"Cannot save checkpoint: metric {self.metric_name} is not a number")
+                            logger.warning(f"Cannot save checkpoint: metric {self.metric_name} is not a number")
                     except Exception as e:
-                        print(f"Error saving best checkpoint: {e}")
+                        logger.error(f"Error saving best checkpoint: {e}")
 
             # Add server evaluation info to aggregated metrics
             if aggregated_metrics is None:
@@ -590,8 +600,8 @@ class FLStrategyBase(Strategy, ABC):
         except Exception as e:
             import traceback
 
-            print(f"Error in aggregate_evaluate: {e}")
-            print(traceback.format_exc())
+            logger.error(f"Error in aggregate_evaluate: {e}")
+            logger.error(traceback.format_exc())
             return_metrics = {"server_evaluation_performed": should_evaluate_server}
             return_metrics.update(strategy_metrics)
             return None, return_metrics
@@ -811,7 +821,7 @@ class StrategyAwareClient(NumPyClient):
         # MEMORY FIX: Make training_history optional since WandB already tracks everything
         self.enable_local_history = getattr(config.training, "enable_local_history", False)
         if self.enable_local_history:
-            print(f"Client {self.client_id}: Local training history enabled (memory usage will increase)")
+            logger.info(f"Client {self.client_id}: Local training history enabled (memory usage will increase)")
             self.training_history = {
                 "train_losses": [],
                 "train_accuracies": [],
@@ -820,22 +830,22 @@ class StrategyAwareClient(NumPyClient):
                 "rounds": [],
             }
         else:
-            print(f"Client {self.client_id}: Local training history disabled (using WandB tracking only)")
+            logger.info(f"Client {self.client_id}: Local training history disabled (using WandB tracking only)")
             self.training_history = None
 
-        print(
+        logger.info(
             f"Initialized {self.client_strategy.get_strategy_name()} client with config: "
             f"{self.config.wandb.run_name if hasattr(self.config, 'wandb') else 'unknown'}"
         )
-        print(f"Train dataset size: {len(self.train_loader.dataset)}")
-        print(f"Validation dataset size: {len(self.val_loader.dataset)}")
-        print(f"Evaluation frequency: every {self.evaluate_frequency} round(s)")
-        print(f"Client checkpoint directory: {self.client_checkpoint_dir}")
-        print(
+        logger.info(f"Train dataset size: {len(self.train_loader.dataset)}")
+        logger.info(f"Validation dataset size: {len(self.val_loader.dataset)}")
+        logger.info(f"Evaluation frequency: every {self.evaluate_frequency} round(s)")
+        logger.info(f"Client checkpoint directory: {self.client_checkpoint_dir}")
+        logger.info(
             f"Client checkpoint saving: {'enabled' if self.save_client_checkpoints else 'disabled'} "
             f"(frequency: {self.checkpoint_save_frequency})"
         )
-        print(f"Total FL rounds configured: {self.total_fl_rounds}")
+        logger.info(f"Total FL rounds configured: {self.total_fl_rounds}")
 
     def _initialize_context_scheduler(self):
         """Initialize or restore scheduler from lightweight context tracking."""
@@ -847,7 +857,9 @@ class StrategyAwareClient(NumPyClient):
 
         if "scheduler_type" not in scheduler_tracking:
             # First time - create fresh scheduler and store lightweight tracking info
-            print(f"Creating new scheduler '{self.config.training.lr_scheduler}' for {self.total_fl_rounds} FL rounds")
+            logger.info(
+                f"Creating new scheduler '{self.config.training.lr_scheduler}' for {self.total_fl_rounds} FL rounds"
+            )
 
             # Always recreate optimizer fresh (memory efficient)
             self._recreate_optimizer()
@@ -876,13 +888,13 @@ class StrategyAwareClient(NumPyClient):
                     scheduler_tracking["gamma"] = scheduler.gamma
 
                 self.client_strategy.scheduler = scheduler
-                print(f"Lightweight scheduler tracking initialized: {dict(scheduler_tracking)}")
+                logger.info(f"Lightweight scheduler tracking initialized: {dict(scheduler_tracking)}")
             else:
-                print("No scheduler specified")
+                logger.info("No scheduler specified")
                 self.client_strategy.scheduler = None
         else:
             # Restore scheduler from lightweight tracking
-            print("Restoring scheduler from lightweight tracking")
+            logger.info("Restoring scheduler from lightweight tracking")
 
             # Always recreate optimizer fresh (memory efficient)
             self._recreate_optimizer()
@@ -896,28 +908,28 @@ class StrategyAwareClient(NumPyClient):
             if scheduler is not None:
                 self.client_strategy.scheduler = scheduler
                 current_lr = self.client_strategy.optimizer.param_groups[0]["lr"]
-                print(f"Scheduler ({type(scheduler).__name__}) recreated from lightweight tracking")
-                print(f"Restored to last_epoch={last_epoch}, current LR: {current_lr:.8f}")
+                logger.info(f"Scheduler ({type(scheduler).__name__}) recreated from lightweight tracking")
+                logger.info(f"Restored to last_epoch={last_epoch}, current LR: {current_lr:.8f}")
 
                 # Print scheduler diagnostics
                 if hasattr(scheduler, "get_lr"):
                     try:
                         expected_lrs = scheduler.get_lr()
-                        print(f"Scheduler's expected LR: {[f'{lr:.8f}' for lr in expected_lrs]}")
+                        logger.info(f"Scheduler's expected LR: {[f'{lr:.8f}' for lr in expected_lrs]}")
 
                         # CRITICAL FIX: Synchronize optimizer LR with scheduler's expected LR
                         if last_epoch > -1:
-                            print("Synchronizing optimizer LR with scheduler expectation after restoration")
+                            logger.info("Synchronizing optimizer LR with scheduler expectation after restoration")
                             self._synchronize_scheduler_lr(scheduler, last_epoch)
 
                             # Show final LR after synchronization
                             final_lr = self.client_strategy.optimizer.param_groups[0]["lr"]
-                            print(f"Final synchronized LR: {final_lr:.8f}")
+                            logger.info(f"Final synchronized LR: {final_lr:.8f}")
 
                     except Exception as lr_check_error:
-                        print(f"Could not check scheduler's expected LR: {lr_check_error}")
+                        logger.error(f"Could not check scheduler's expected LR: {lr_check_error}")
             else:
-                print("Failed to recreate scheduler from lightweight tracking")
+                logger.warning("Failed to recreate scheduler from lightweight tracking")
                 self.client_strategy.scheduler = None
 
     def _recreate_optimizer(self):
@@ -945,7 +957,7 @@ class StrategyAwareClient(NumPyClient):
             optimizer = torch.optim.AdamW(current_params, lr=lr, weight_decay=weight_decay)
 
         self.client_strategy.optimizer = optimizer
-        print(f"Recreated fresh {type(optimizer).__name__} optimizer with LR={lr:.8f}")
+        logger.info(f"Recreated fresh {type(optimizer).__name__} optimizer with LR={lr:.8f}")
 
     def _recreate_scheduler_from_tracking(self, scheduler_tracking) -> Optional[torch.optim.lr_scheduler._LRScheduler]:
         """Recreate scheduler from lightweight tracking information."""
@@ -990,7 +1002,7 @@ class StrategyAwareClient(NumPyClient):
             return scheduler
 
         except Exception as e:
-            print(f"Error recreating scheduler from tracking: {e}")
+            logger.error(f"Error recreating scheduler from tracking: {e}")
             return None
 
     def _update_context_scheduler(self):
@@ -1007,10 +1019,10 @@ class StrategyAwareClient(NumPyClient):
 
                 scheduler_tracking["last_epoch"] = current_step
 
-                print(f"Updated lightweight scheduler tracking: last_epoch = {current_step}")
+                logger.info(f"Updated lightweight scheduler tracking: last_epoch = {current_step}")
 
             except Exception as e:
-                print(f"ERROR: Failed to update scheduler tracking: {e}")
+                logger.error(f"ERROR: Failed to update scheduler tracking: {e}")
 
     def _synchronize_scheduler_lr(self, scheduler, current_step: int):
         """Synchronize optimizer learning rate with scheduler expectations.
@@ -1033,15 +1045,15 @@ class StrategyAwareClient(NumPyClient):
                     for param_group, lr in zip(scheduler.optimizer.param_groups, calculated_lrs, strict=False):
                         old_lr = param_group["lr"]
                         param_group["lr"] = lr
-                        print(f"LR sync: Updated param group LR from {old_lr:.8f} to {lr:.8f}")
+                        logger.info(f"LR sync: Updated param group LR from {old_lr:.8f} to {lr:.8f}")
 
                     # Update scheduler's internal _last_lr if it exists
                     if hasattr(scheduler, "_last_lr"):
                         scheduler._last_lr = calculated_lrs
 
-                    print(f"Successfully synchronized LR for {scheduler_type} at step {current_step}")
+                    logger.info(f"Successfully synchronized LR for {scheduler_type} at step {current_step}")
                 else:
-                    print(f"Warning: {scheduler_type} scheduler doesn't have get_lr() method")
+                    logger.warning(f"Warning: {scheduler_type} scheduler doesn't have get_lr() method")
 
             elif scheduler_type in ["StepLR", "MultiStepLR", "ExponentialLR"]:
                 # For step-based schedulers, calculate expected LR
@@ -1050,33 +1062,33 @@ class StrategyAwareClient(NumPyClient):
                     for param_group, lr in zip(scheduler.optimizer.param_groups, calculated_lrs, strict=False):
                         old_lr = param_group["lr"]
                         param_group["lr"] = lr
-                        print(f"LR sync: Updated param group LR from {old_lr:.8f} to {lr:.8f}")
+                        logger.info(f"LR sync: Updated param group LR from {old_lr:.8f} to {lr:.8f}")
 
                     if hasattr(scheduler, "_last_lr"):
                         scheduler._last_lr = calculated_lrs
 
-                    print(f"Successfully synchronized LR for {scheduler_type} at step {current_step}")
+                    logger.info(f"Successfully synchronized LR for {scheduler_type} at step {current_step}")
 
             elif scheduler_type == "ReduceLROnPlateau":
                 # ReduceLROnPlateau doesn't have get_lr(), and its LR changes are event-driven
                 # We can't easily predict the LR without knowing the loss history
-                print(f"Warning: Cannot synchronize LR for {scheduler_type} - LR changes are loss-driven")
+                logger.warning(f"Warning: Cannot synchronize LR for {scheduler_type} - LR changes are loss-driven")
 
             else:
-                print(f"Warning: Unknown scheduler type {scheduler_type}, attempting generic LR sync")
+                logger.warning(f"Warning: Unknown scheduler type {scheduler_type}, attempting generic LR sync")
                 if hasattr(scheduler, "get_lr"):
                     calculated_lrs = scheduler.get_lr()
                     for param_group, lr in zip(scheduler.optimizer.param_groups, calculated_lrs, strict=False):
                         old_lr = param_group["lr"]
                         param_group["lr"] = lr
-                        print(f"LR sync: Updated param group LR from {old_lr:.8f} to {lr:.8f}")
+                        logger.info(f"LR sync: Updated param group LR from {old_lr:.8f} to {lr:.8f}")
 
                     if hasattr(scheduler, "_last_lr"):
                         scheduler._last_lr = calculated_lrs
 
         except Exception as e:
-            print(f"Error during LR synchronization: {e}")
-            print("Continuing with current LR settings")
+            logger.error(f"Error during LR synchronization: {e}")
+            logger.warning("Continuing with current LR settings")
 
     def _save_client_checkpoint(self, round_num: int, train_loss: float, train_acc: float, is_best: bool = False):
         """Save client checkpoint after local training.
@@ -1093,7 +1105,7 @@ class StrategyAwareClient(NumPyClient):
         # Check scheduler health before attempting to save
         scheduler_healthy = self._check_scheduler_health()
         if not scheduler_healthy:
-            print(f"Client {self.client_id}: WARNING - Scheduler health check failed, checkpoint may fail")
+            logger.warning(f"Client {self.client_id}: WARNING - Scheduler health check failed, checkpoint may fail")
 
         try:
             checkpoint = {
@@ -1122,7 +1134,7 @@ class StrategyAwareClient(NumPyClient):
             try:
                 checkpoint["optimizer_state_dict"] = self.client_strategy.optimizer.state_dict()
             except Exception as optimizer_error:
-                print(f"Client {self.client_id}: Could not save optimizer state: {optimizer_error}")
+                logger.error(f"Client {self.client_id}: Could not save optimizer state: {optimizer_error}")
                 # Not critical since we recreate optimizers fresh each round
 
             # Add scheduler state if available
@@ -1130,7 +1142,9 @@ class StrategyAwareClient(NumPyClient):
                 try:
                     checkpoint["scheduler_state_dict"] = self.client_strategy.scheduler.state_dict()
                 except Exception as scheduler_error:
-                    print(f"Client {self.client_id}: Warning - Could not serialize scheduler state: {scheduler_error}")
+                    logger.warning(
+                        f"Client {self.client_id}: Warning - Could not serialize scheduler state: {scheduler_error}"
+                    )
                     # Don't include scheduler state in checkpoint if it fails
                     checkpoint["scheduler_serialization_failed"] = True
 
@@ -1139,7 +1153,7 @@ class StrategyAwareClient(NumPyClient):
                 try:
                     checkpoint["strategy_data"] = self.client_strategy.get_checkpoint_data()
                 except Exception as strategy_error:
-                    print(
+                    logger.warning(
                         f"Client {self.client_id}: Warning - Could not get strategy checkpoint data: {strategy_error}"
                     )
 
@@ -1148,32 +1162,32 @@ class StrategyAwareClient(NumPyClient):
                 try:
                     checkpoint_path = os.path.join(self.client_checkpoint_dir, f"checkpoint_round_{round_num}.pt")
                     torch.save(checkpoint, checkpoint_path)
-                    print(f"Client {self.client_id}: Saved checkpoint for round {round_num} to {checkpoint_path}")
+                    logger.info(f"Client {self.client_id}: Saved checkpoint for round {round_num} to {checkpoint_path}")
                 except Exception as save_error:
-                    print(f"Client {self.client_id}: Error saving round {round_num} checkpoint: {save_error}")
+                    logger.error(f"Client {self.client_id}: Error saving round {round_num} checkpoint: {save_error}")
 
             # Always save latest checkpoint (overwrite)
             try:
                 latest_path = os.path.join(self.client_checkpoint_dir, "checkpoint_latest.pt")
                 torch.save(checkpoint, latest_path)
             except Exception as save_error:
-                print(f"Client {self.client_id}: Error saving latest checkpoint: {save_error}")
+                logger.error(f"Client {self.client_id}: Error saving latest checkpoint: {save_error}")
 
             # Save best checkpoint if this is the best model
             if is_best:
                 try:
                     best_path = os.path.join(self.client_checkpoint_dir, "checkpoint_best.pt")
                     torch.save(checkpoint, best_path)
-                    print(
+                    logger.info(
                         f"Client {self.client_id}: Saved new best checkpoint with accuracy "
                         f"{train_acc:.2f}% to {best_path}"
                     )
                 except Exception as save_error:
-                    print(f"Client {self.client_id}: Error saving best checkpoint: {save_error}")
+                    logger.error(f"Client {self.client_id}: Error saving best checkpoint: {save_error}")
 
         except Exception as e:
-            print(f"Client {self.client_id}: Error creating checkpoint data: {e}")
-            print(f"Client {self.client_id}: Traceback: {traceback.format_exc()}")
+            logger.error(f"Client {self.client_id}: Error creating checkpoint data: {e}")
+            logger.error(f"Client {self.client_id}: Traceback: {traceback.format_exc()}")
         finally:
             # Cleanup memory after checkpoint operations
             try:
@@ -1181,7 +1195,7 @@ class StrategyAwareClient(NumPyClient):
                     torch.cuda.empty_cache()
                 gc.collect()
             except Exception as cleanup_error:
-                print(f"Client {self.client_id}: Warning - Checkpoint cleanup failed: {cleanup_error}")
+                logger.warning(f"Client {self.client_id}: Warning - Checkpoint cleanup failed: {cleanup_error}")
 
     def _load_client_checkpoint(self, checkpoint_path: str) -> bool:
         """Load client checkpoint to resume training.
@@ -1194,7 +1208,7 @@ class StrategyAwareClient(NumPyClient):
         """
         try:
             if not os.path.exists(checkpoint_path):
-                print(f"Client {self.client_id}: Checkpoint file not found: {checkpoint_path}")
+                logger.warning(f"Client {self.client_id}: Checkpoint file not found: {checkpoint_path}")
                 return False
 
             checkpoint = torch.load(checkpoint_path, map_location=self.device)
@@ -1203,7 +1217,7 @@ class StrategyAwareClient(NumPyClient):
             saved_strategy = checkpoint.get("strategy_name", "unknown")
             current_strategy = self.client_strategy.get_strategy_name()
             if saved_strategy != current_strategy:
-                print(
+                logger.warning(
                     f"Client {self.client_id}: Strategy mismatch - saved: {saved_strategy}, current: {current_strategy}"
                 )
                 return False
@@ -1216,7 +1230,7 @@ class StrategyAwareClient(NumPyClient):
                 try:
                     self.client_strategy.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
                 except Exception as optimizer_error:
-                    print(f"Client {self.client_id}: Could not load optimizer state: {optimizer_error}")
+                    logger.error(f"Client {self.client_id}: Could not load optimizer state: {optimizer_error}")
                     # Not critical since we recreate optimizers fresh each round
 
             # Load scheduler state if available
@@ -1226,7 +1240,7 @@ class StrategyAwareClient(NumPyClient):
                 and self.client_strategy.scheduler is not None
             ):
                 self.client_strategy.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-                print(f"Client {self.client_id}: Restored scheduler state")
+                logger.info(f"Client {self.client_id}: Restored scheduler state")
 
             # Restore training state
             self.current_round = checkpoint.get("round", 0)
@@ -1241,18 +1255,18 @@ class StrategyAwareClient(NumPyClient):
             else:
                 # Don't restore training_history if local history is disabled
                 self.training_history = None
-                print(f"Client {self.client_id}: Skipped loading training_history (local history disabled)")
+                logger.info(f"Client {self.client_id}: Skipped loading training_history (local history disabled)")
 
             # Load strategy-specific checkpoint data
             if hasattr(self.client_strategy, "load_checkpoint_data") and "strategy_data" in checkpoint:
                 self.client_strategy.load_checkpoint_data(checkpoint["strategy_data"])
 
-            print(f"Client {self.client_id}: Successfully loaded checkpoint from round {self.current_round}")
-            print(f"Client {self.client_id}: Best validation accuracy so far: {self.best_val_accuracy:.2f}%")
+            logger.info(f"Client {self.client_id}: Successfully loaded checkpoint from round {self.current_round}")
+            logger.info(f"Client {self.client_id}: Best validation accuracy so far: {self.best_val_accuracy:.2f}%")
             return True
 
         except Exception as e:
-            print(f"Client {self.client_id}: Error loading checkpoint: {e}")
+            logger.error(f"Client {self.client_id}: Error loading checkpoint: {e}")
             return False
 
     def resume_from_checkpoint(self) -> bool:
@@ -1264,7 +1278,7 @@ class StrategyAwareClient(NumPyClient):
         # If model.pretrained_checkpoint is specified and is an FL checkpoint, use it
         if self.config.model.pretrained_checkpoint:
             if is_fl_client_checkpoint(self.config.model.pretrained_checkpoint):
-                print(f"Resuming from specified FL checkpoint: {self.config.model.pretrained_checkpoint}")
+                logger.info(f"Resuming from specified FL checkpoint: {self.config.model.pretrained_checkpoint}")
                 return self._load_client_checkpoint(self.config.model.pretrained_checkpoint)
 
         # Otherwise, try the latest checkpoint
@@ -1284,7 +1298,7 @@ class StrategyAwareClient(NumPyClient):
         # Check for WandB run ID in config and join if available
         wandb_run_id = config.get("wandb_run_id")
         if wandb_run_id and self.wandb_logger and not self.wandb_logger.run:
-            print(f"Client {self.client_id}: Received WandB run ID from server: {wandb_run_id}")
+            logger.info(f"Client {self.client_id}: Received WandB run ID from server: {wandb_run_id}")
             self.wandb_logger.join_wandb_run(wandb_run_id)
 
         # Get current round number from config
@@ -1328,10 +1342,13 @@ class StrategyAwareClient(NumPyClient):
         if self.context is not None:
             self._update_context_scheduler()
 
-        # Get updated parameters (strategy-specific for SecAgg)
+        # Get updated parameters (strategy-specific)
         if hasattr(self.client_strategy, "get_secure_parameters"):
             # For SecAgg, get masked parameters
             updated_params = self.client_strategy.get_secure_parameters()
+        elif hasattr(self.client_strategy, "get_differential_private_parameters"):
+            # For Differential Privacy, get DP-protected parameters
+            updated_params = self.client_strategy.get_differential_private_parameters()
         else:
             # For other strategies, get regular parameters
             from adni_flwr.task import get_params
@@ -1342,7 +1359,7 @@ class StrategyAwareClient(NumPyClient):
         training_time = end_time - start_time
 
         # Log training metrics
-        print(
+        logger.info(
             f"Client {self.client_id} training round {current_round}: "
             f"loss={avg_loss:.4f}, accuracy={avg_acc:.2f}%, "
             f"training_time={training_time:.2f} seconds"
@@ -1406,7 +1423,7 @@ class StrategyAwareClient(NumPyClient):
                 memory_after = torch.cuda.memory_allocated() / 1024**3  # GB
                 memory_freed = memory_before - memory_after
 
-                print(
+                logger.info(
                     f"Client {self.client_id}: GPU memory cleanup - "
                     f"Before: {memory_before:.2f}GB, After: {memory_after:.2f}GB, Freed: {memory_freed:.2f}GB"
                 )
@@ -1414,10 +1431,10 @@ class StrategyAwareClient(NumPyClient):
             # Force garbage collection
             gc.collect()
 
-            print(f"Client {self.client_id}: Memory cleanup completed")
+            logger.info(f"Client {self.client_id}: Memory cleanup completed")
 
         except Exception as e:
-            print(f"Client {self.client_id}: Warning - Memory cleanup failed: {e}")
+            logger.warning(f"Client {self.client_id}: Warning - Memory cleanup failed: {e}")
 
     def test_serialization(self, metrics: Dict) -> bool:
         """Test if the metrics can be serialized to JSON.
@@ -1432,18 +1449,18 @@ class StrategyAwareClient(NumPyClient):
             json_str = json.dumps(metrics)
             # Reconstruct to verify
             json.loads(json_str)
-            print(f"Serialization test passed. Size: {len(json_str)} bytes")
+            logger.info(f"Serialization test passed. Size: {len(json_str)} bytes")
             return True
         except Exception as e:
-            print(f"ERROR: Serialization test failed: {e}")
+            logger.error(f"ERROR: Serialization test failed: {e}")
 
             # Try to identify problematic keys
             for k, v in metrics.items():
                 try:
                     json.dumps({k: v})
                 except Exception as sub_e:
-                    print(f"  Problem with key '{k}': {sub_e}")
-                    print(f"  Type: {type(v)}, Value preview: {str(v)[:100]}")
+                    logger.error(f"  Problem with key '{k}': {sub_e}")
+                    logger.error(f"  Type: {type(v)}, Value preview: {str(v)[:100]}")
 
             return False
 
@@ -1460,7 +1477,7 @@ class StrategyAwareClient(NumPyClient):
         # Check for WandB run ID in config and join if available
         wandb_run_id = config.get("wandb_run_id")
         if wandb_run_id and self.wandb_logger and not self.wandb_logger.run:
-            print(f"Client {self.client_id}: Received WandB run ID from server: {wandb_run_id}")
+            logger.info(f"Client {self.client_id}: Received WandB run ID from server: {wandb_run_id}")
             self.wandb_logger.join_wandb_run(wandb_run_id)
 
         # Get the current round number from the config
@@ -1468,7 +1485,7 @@ class StrategyAwareClient(NumPyClient):
 
         # Check if we should evaluate in this round
         if current_round % self.evaluate_frequency != 0:
-            print(
+            logger.info(
                 f"Client {self.client_id}: Skipping evaluation for round {current_round} "
                 f"(evaluating every {self.evaluate_frequency} rounds)"
             )
@@ -1489,7 +1506,7 @@ class StrategyAwareClient(NumPyClient):
                 },
             )
 
-        print(f"Client {self.client_id}: Performing evaluation for round {current_round}")
+        logger.info(f"Client {self.client_id}: Performing evaluation for round {current_round}")
 
         try:
             # Convert parameters to numpy arrays safely
@@ -1512,14 +1529,18 @@ class StrategyAwareClient(NumPyClient):
                 self.training_history["val_accuracies"].append(val_acc)
 
             # Log evaluation metrics
-            print(
+            logger.info(
                 f"Client {self.client_id} evaluation round {current_round}: "
                 f"loss={val_loss:.4f}, accuracy={val_acc:.2f}%"
             )
 
             # Print information about predictions and labels for debugging
-            print(f"Client {self.client_id}: Predictions length={len(predictions)}, Labels length={len(true_labels)}")
-            print(f"Client {self.client_id}: First 5 predictions={predictions[:5]}, First 5 labels={true_labels[:5]}")
+            logger.info(
+                f"Client {self.client_id}: Predictions length={len(predictions)}, Labels length={len(true_labels)}"
+            )
+            logger.info(
+                f"Client {self.client_id}: First 5 predictions={predictions[:5]}, First 5 labels={true_labels[:5]}"
+            )
 
             # Convert to Python native types (especially important for numpy types)
             predictions_list = [int(p) for p in predictions]
@@ -1542,19 +1563,19 @@ class StrategyAwareClient(NumPyClient):
             predictions_json = json.dumps(predictions_sample)
             labels_json = json.dumps(labels_sample)
 
-            print(f"Client {self.client_id}: Serialized predictions length={len(predictions_json)} bytes")
-            print(f"Client {self.client_id}: Serialized labels length={len(labels_json)} bytes")
+            logger.info(f"Client {self.client_id}: Serialized predictions length={len(predictions_json)} bytes")
+            logger.info(f"Client {self.client_id}: Serialized labels length={len(labels_json)} bytes")
 
             # Calculate confusion matrix locally for backup/debugging
             try:
                 cm = confusion_matrix(true_labels, predictions)
-                print(f"Client {self.client_id}: Local confusion matrix:\n{cm}")
+                logger.info(f"Client {self.client_id}: Local confusion matrix:\n{cm}")
 
                 # You can still save it to a file as backup
                 os.makedirs("client_matrices", exist_ok=True)
                 np.save(f"client_matrices/confusion_matrix_client_{self.client_id}.npy", cm)
             except Exception as e:
-                print(f"Client {self.client_id}: Error creating local confusion matrix: {e}")
+                logger.error(f"Client {self.client_id}: Error creating local confusion matrix: {e}")
 
             # Create result dictionary with encoded data
             result = {
@@ -1575,7 +1596,9 @@ class StrategyAwareClient(NumPyClient):
             success = self.test_serialization(result)
             if not success:
                 # Fall back to minimal metrics if serialization fails
-                print(f"Client {self.client_id}: WARNING - Serialization failed, falling back to minimal metrics")
+                logger.warning(
+                    f"Client {self.client_id}: WARNING - Serialization failed, falling back to minimal metrics"
+                )
                 result = {
                     "val_loss": float(val_loss),
                     "val_accuracy": float(val_acc),
@@ -1596,8 +1619,8 @@ class StrategyAwareClient(NumPyClient):
             return float(val_loss), len(self.val_loader.dataset), result
 
         except Exception as e:
-            print(f"Client {self.client_id}: Error in evaluate method: {e}")
-            print(traceback.format_exc())
+            logger.error(f"Client {self.client_id}: Error in evaluate method: {e}")
+            logger.error(traceback.format_exc())
 
             # Perform memory cleanup even on error
             self._cleanup_memory()
@@ -1628,7 +1651,7 @@ class StrategyAwareClient(NumPyClient):
         ):
             # Check if scheduler's optimizer reference matches current optimizer
             if self.client_strategy.scheduler.optimizer is not self.client_strategy.optimizer:
-                print(f"Client {self.client_id}: Fixing scheduler optimizer reference mismatch")
+                logger.warning(f"Client {self.client_id}: Fixing scheduler optimizer reference mismatch")
                 self.client_strategy.scheduler.optimizer = self.client_strategy.optimizer
 
     def _check_scheduler_health(self) -> bool:
@@ -1656,7 +1679,7 @@ class StrategyAwareClient(NumPyClient):
             current_optimizer_id = id(self.client_strategy.optimizer)
             optimizer_match = scheduler_optimizer_id == current_optimizer_id
 
-            print(
+            logger.info(
                 f"Client {self.client_id}: Scheduler health check "
                 f"- Type: {scheduler_type}, last_epoch: {last_epoch}, "
                 f"state_dict_keys: {len(state_dict)}, optimizer_ref_match: {optimizer_match}"
@@ -1664,8 +1687,8 @@ class StrategyAwareClient(NumPyClient):
             return True
 
         except Exception as e:
-            print(f"Client {self.client_id}: Scheduler health check failed: {e}")
-            print(f"Client {self.client_id}: Scheduler health check traceback: {traceback.format_exc()}")
+            logger.error(f"Client {self.client_id}: Scheduler health check failed: {e}")
+            logger.error(f"Client {self.client_id}: Scheduler health check traceback: {traceback.format_exc()}")
             return False
 
     def _simple_memory_cleanup(self):
@@ -1686,7 +1709,7 @@ class StrategyAwareClient(NumPyClient):
                 # Restore LR
                 for group in self.client_strategy.optimizer.param_groups:
                     group["lr"] = current_lr
-                print(f"Client {self.client_id}: Cleared optimizer state at round {self.current_round}")
+                logger.info(f"Client {self.client_id}: Cleared optimizer state at round {self.current_round}")
 
             # Force garbage collection and CUDA cleanup
             import gc
@@ -1700,10 +1723,10 @@ class StrategyAwareClient(NumPyClient):
 
             if torch.cuda.is_available():
                 memory_mb = torch.cuda.memory_allocated() / 1024**2
-                print(f"Client {self.client_id}: Post-cleanup GPU memory: {memory_mb:.1f}MB")
+                logger.info(f"Client {self.client_id}: Post-cleanup GPU memory: {memory_mb:.1f}MB")
 
         except Exception as e:
-            print(f"Client {self.client_id}: Warning - Simple memory cleanup failed: {e}")
+            logger.warning(f"Client {self.client_id}: Warning - Simple memory cleanup failed: {e}")
 
     def _cleanup_dataloaders_and_datasets(self):
         """Clean up DataLoaders and cached datasets to prevent major memory leaks."""
@@ -1726,22 +1749,22 @@ class StrategyAwareClient(NumPyClient):
                 if hasattr(self.val_loader, "_shutdown_workers"):
                     self.val_loader._shutdown_workers()
 
-            print(f"Client {self.client_id}: Cleaned up DataLoaders and datasets")
+            logger.info(f"Client {self.client_id}: Cleaned up DataLoaders and datasets")
 
         except Exception as e:
-            print(f"Client {self.client_id}: Warning - DataLoader/dataset cleanup failed: {e}")
+            logger.warning(f"Client {self.client_id}: Warning - DataLoader/dataset cleanup failed: {e}")
 
     def _cleanup_dataset_cache(self, dataset, dataset_type: str):
         """Clean up cached dataset memory."""
         try:
             # Check if it's a MONAI cached dataset and clear its cache
             if hasattr(dataset, "_cache") and dataset._cache is not None:
-                print(f"Client {self.client_id}: Clearing {dataset_type} dataset cache...")
+                logger.info(f"Client {self.client_id}: Clearing {dataset_type} dataset cache...")
 
                 # For CacheDataset and SmartCacheDataset
                 if hasattr(dataset, "_cache"):
                     cache_size = len(dataset._cache) if hasattr(dataset._cache, "__len__") else "unknown"
-                    print(f"  - Clearing cache with {cache_size} items")
+                    logger.info(f"  - Clearing cache with {cache_size} items")
 
                     # Clear the cache
                     if hasattr(dataset._cache, "clear"):
@@ -1751,23 +1774,23 @@ class StrategyAwareClient(NumPyClient):
 
                 # For SmartCacheDataset specifically
                 if hasattr(dataset, "cache_data") and dataset.cache_data is not None:
-                    print("  - Clearing SmartCache cache_data")
+                    logger.info("  - Clearing SmartCache cache_data")
                     dataset.cache_data = None
 
                 # Clear any worker pools
                 if hasattr(dataset, "_workers") and dataset._workers is not None:
-                    print("  - Shutting down dataset workers")
+                    logger.info("  - Shutting down dataset workers")
                     dataset._workers = None
 
             # For PersistentDataset, we don't need to clear disk cache, just memory references
             elif hasattr(dataset, "cache_dir"):
-                print(
+                logger.info(
                     f"Client {self.client_id}: {dataset_type} "
                     f"using PersistentDataset (disk cache) - no memory cleanup needed"
                 )
 
         except Exception as e:
-            print(f"Client {self.client_id}: Warning - {dataset_type} dataset cache cleanup failed: {e}")
+            logger.warning(f"Client {self.client_id}: Warning - {dataset_type} dataset cache cleanup failed: {e}")
 
     def is_final_round(self, current_round: int) -> bool:
         """Check if this is the final FL round.
@@ -1790,19 +1813,21 @@ class StrategyAwareClient(NumPyClient):
             current_round: Current round number
         """
         if self.is_final_round(current_round):
-            print(f"🎯 Client {self.client_id}: Final round {current_round} completed!")
-            print(f"📡 Client {self.client_id}: Signaling completion to WandB (server coordinates overall finish)")
+            logger.info(f"🎯 Client {self.client_id}: Final round {current_round} completed!")
+            logger.info(
+                f"📡 Client {self.client_id}: Signaling completion to WandB (server coordinates overall finish)"
+            )
 
             if self.wandb_logger and hasattr(self.wandb_logger, "finish"):
                 try:
                     # Client signals completion but doesn't finish the main run
                     # (x_update_finish_state=False ensures server maintains control)
                     self.wandb_logger.finish()
-                    print(
+                    logger.success(
                         f"✅ Client {self.client_id}: "
                         f"Successfully signaled completion to WandB for round {current_round}"
                     )
                 except Exception as e:
-                    print(f"⚠️ Client {self.client_id}: Error signaling completion to WandB: {e}")
+                    logger.warning(f"⚠️ Client {self.client_id}: Error signaling completion to WandB: {e}")
             else:
-                print(f"⚠️ Client {self.client_id}: No WandB logger available to signal completion")
+                logger.warning(f"⚠️ Client {self.client_id}: No WandB logger available to signal completion")

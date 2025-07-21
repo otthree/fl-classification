@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
+from loguru import logger
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
 
@@ -66,7 +67,7 @@ def load_model(config: Config) -> nn.Module:
         if hasattr(config.model, "input_channels"):
             model_kwargs["input_channels"] = config.model.input_channels
 
-    print(f"Creating model '{config.model.name}' with kwargs: {model_kwargs}")
+    logger.info(f"Creating model '{config.model.name}' with kwargs: {model_kwargs}")
     model = ModelFactory.create_model(config.model.name, **model_kwargs)
     return model
 
@@ -88,12 +89,12 @@ def safe_parameters_to_ndarrays(parameters) -> List[np.ndarray]:
         from flwr.common import parameters_to_ndarrays
 
         param_arrays = parameters_to_ndarrays(parameters)
-        print(f"Converted Parameters object to {len(param_arrays)} numpy arrays")
+        logger.info(f"Converted Parameters object to {len(param_arrays)} numpy arrays")
         return param_arrays
     elif isinstance(parameters, list):
         # Check if it's a list of numpy arrays
         if all(isinstance(p, np.ndarray) for p in parameters):
-            print(f"Using provided list of {len(parameters)} numpy arrays")
+            logger.info(f"Using provided list of {len(parameters)} numpy arrays")
             return parameters
         else:
             raise ValueError("List contains non-numpy array elements")
@@ -116,7 +117,7 @@ def get_params(model: nn.Module) -> List[np.ndarray]:
     param_keys = list(model_state.keys())
 
     # Debug information (reduced verbosity)
-    print(f"Extracting {len(param_keys)} parameters from model")
+    logger.info(f"Extracting {len(param_keys)} parameters from model")
 
     # Extract parameters
     params = []
@@ -138,16 +139,16 @@ def set_params(model: nn.Module, params: List[np.ndarray]) -> None:
     model_keys = list(model.state_dict().keys())
 
     # Debug information
-    print(f"Setting {len(params)} parameters to model (model expects {len(model_keys)})")
+    logger.info(f"Setting {len(params)} parameters to model (model expects {len(model_keys)})")
 
     # Check if the number of parameters matches
     if len(model_keys) != len(params):
-        print(f"WARNING: Parameter count mismatch! Model expects {len(model_keys)} but received {len(params)}")
+        logger.warning(f"Parameter count mismatch! Model expects {len(model_keys)} but received {len(params)}")
 
         # If we have fewer params than expected, something is wrong
         if len(params) < len(model_keys):
-            print("ERROR: Insufficient parameters provided!")
-            print(f"Model keys: {model_keys[:10]}...")  # Show first 10 keys
+            logger.error("Insufficient parameters provided!")
+            logger.error(f"Model keys: {model_keys[:10]}...")  # Show first 10 keys
             raise ValueError(
                 f"Cannot set parameters: received {len(params)} parameters but model expects {len(model_keys)}"
             )
@@ -159,25 +160,25 @@ def set_params(model: nn.Module, params: List[np.ndarray]) -> None:
     # Try strict loading first, fall back to non-strict if it fails
     try:
         model.load_state_dict(state_dict, strict=True)
-        print("✅ Successfully loaded parameters")
+        logger.success("Successfully loaded parameters")
     except RuntimeError as e:
-        print(f"❌ Strict loading failed: {e}")
-        print("Attempting to load with strict=False...")
+        logger.error(f"Strict loading failed: {e}")
+        logger.info("Attempting to load with strict=False...")
 
         # Try non-strict loading
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
 
         if missing_keys:
-            print(f"Missing keys: {missing_keys[:5]}...")  # Show first 5
+            logger.warning(f"Missing keys: {missing_keys[:5]}...")  # Show first 5
         if unexpected_keys:
-            print(f"Unexpected keys: {unexpected_keys[:5]}...")  # Show first 5
+            logger.warning(f"Unexpected keys: {unexpected_keys[:5]}...")  # Show first 5
 
         # If there are critical missing keys, this might still fail
         if missing_keys:
-            print("⚠️  WARNING: Some model parameters were not loaded!")
-            print("This might cause training issues. Check model architecture consistency.")
+            logger.warning("Some model parameters were not loaded!")
+            logger.warning("This might cause training issues. Check model architecture consistency.")
         else:
-            print("✅ Successfully loaded parameters with strict=False")
+            logger.success("Successfully loaded parameters with strict=False")
 
 
 def train(
@@ -264,7 +265,7 @@ def train(
         # Calculate and log epoch metrics
         epoch_avg_loss = epoch_loss / len(train_loader)
         epoch_avg_acc = 100.0 * epoch_correct / epoch_samples if epoch_samples > 0 else 0.0
-        print(f"Epoch {epoch + 1}/{epoch_num}: loss={epoch_avg_loss:.4f}, accuracy={epoch_avg_acc:.2f}%")
+        logger.info(f"Epoch {epoch + 1}/{epoch_num}: loss={epoch_avg_loss:.4f}, accuracy={epoch_avg_acc:.2f}%")
 
         # Step the scheduler after each epoch if provided
         if scheduler is not None:
@@ -276,7 +277,7 @@ def train(
 
             # Log current learning rate
             current_lr = optimizer.param_groups[0]["lr"]
-            print(f"  Learning rate: {current_lr:.8f}")
+            logger.info(f"  Learning rate: {current_lr:.8f}")
 
     avg_loss = total_loss / (len(train_loader) * epoch_num)
     avg_accuracy = 100.0 * total_correct / total_samples if total_samples > 0 else 0.0
@@ -584,7 +585,7 @@ def create_criterion(
         else:
             class_weights = [1.0] * num_classes
 
-        print(f"Class weights ({weight_type}): {class_weights}")
+        logger.info(f"Class weights ({weight_type}): {class_weights}")
         class_weights = torch.FloatTensor(class_weights).to(device)
 
     # Create the appropriate loss function based on configuration
@@ -622,7 +623,7 @@ def is_fl_client_checkpoint(checkpoint_path: str) -> bool:
         return has_fl_keys
 
     except Exception as e:
-        print(f"Error checking checkpoint type: {e}")
+        logger.error(f"Error checking checkpoint type: {e}")
         return False
 
 
@@ -643,9 +644,9 @@ def load_fl_client_checkpoint_to_model(checkpoint_path: str, model: torch.nn.Mod
         # Load model state dict
         if "model_state_dict" in checkpoint:
             model.load_state_dict(checkpoint["model_state_dict"])
-            print(f"Loaded FL client model state from {checkpoint_path}")
+            logger.info(f"Loaded FL client model state from {checkpoint_path}")
         else:
-            print(f"Warning: No model_state_dict found in FL checkpoint {checkpoint_path}")
+            logger.warning(f"No model_state_dict found in FL checkpoint {checkpoint_path}")
 
         # Return metadata for potential use
         metadata = {
@@ -656,7 +657,7 @@ def load_fl_client_checkpoint_to_model(checkpoint_path: str, model: torch.nn.Mod
             "strategy_name": checkpoint.get("strategy_name", "unknown"),
         }
 
-        print(
+        logger.info(
             f"FL checkpoint metadata: round={metadata['round']}, "
             f"client_id={metadata['client_id']}, "
             f"strategy={metadata['strategy_name']}, "
@@ -666,7 +667,7 @@ def load_fl_client_checkpoint_to_model(checkpoint_path: str, model: torch.nn.Mod
         return metadata
 
     except Exception as e:
-        print(f"Error loading FL client checkpoint: {e}")
+        logger.error(f"Error loading FL client checkpoint: {e}")
         return {}
 
 
@@ -687,15 +688,15 @@ def handle_pretrained_checkpoint(config: Config, model: torch.nn.Module, device:
     checkpoint_path = config.model.pretrained_checkpoint
 
     if not os.path.exists(checkpoint_path):
-        print(f"Checkpoint file not found: {checkpoint_path}")
+        logger.warning(f"Checkpoint file not found: {checkpoint_path}")
         return {}
 
     # Detect checkpoint type
     if is_fl_client_checkpoint(checkpoint_path):
-        print(f"Detected FL client checkpoint: {checkpoint_path}")
+        logger.info(f"Detected FL client checkpoint: {checkpoint_path}")
         return load_fl_client_checkpoint_to_model(checkpoint_path, model, device)
     else:
-        print(f"Detected regular model checkpoint: {checkpoint_path}")
+        logger.info(f"Detected regular model checkpoint: {checkpoint_path}")
         # Load as regular model state dict
         try:
             state_dict = torch.load(checkpoint_path, map_location=device)
@@ -704,14 +705,14 @@ def handle_pretrained_checkpoint(config: Config, model: torch.nn.Module, device:
             if isinstance(state_dict, dict) and "model_state_dict" in state_dict:
                 # Training checkpoint format
                 model.load_state_dict(state_dict["model_state_dict"])
-                print(f"Loaded model state dict from training checkpoint: {checkpoint_path}")
+                logger.info(f"Loaded model state dict from training checkpoint: {checkpoint_path}")
             else:
                 # Direct state dict format
                 model.load_state_dict(state_dict)
-                print(f"Loaded model state dict: {checkpoint_path}")
+                logger.info(f"Loaded model state dict: {checkpoint_path}")
 
         except Exception as e:
-            print(f"Error loading regular checkpoint: {e}")
+            logger.error(f"Error loading regular checkpoint: {e}")
 
         return {}  # No metadata for regular checkpoints
 
@@ -723,18 +724,18 @@ def debug_model_architecture(model: nn.Module, model_name: str = "Model") -> Non
         model: The model to debug
         model_name: Name for debugging output
     """
-    print(f"\n=== {model_name} Architecture ===")
-    print(f"Model type: {type(model).__name__}")
+    logger.info(f"\n=== {model_name} Architecture ===")
+    logger.info(f"Model type: {type(model).__name__}")
 
     # Print state dict summary
     state_dict = model.state_dict()
-    print(f"Total parameters: {len(state_dict)}")
-    print(
+    logger.info(f"Total parameters: {len(state_dict)}")
+    logger.info(
         f"Parameter keys: {list(state_dict.keys())[:5]}..."
         if len(state_dict) > 5
         else f"Parameter keys: {list(state_dict.keys())}"
     )
-    print("=" * 40)
+    logger.info("=" * 40)
 
 
 def verify_model_consistency(
@@ -751,7 +752,7 @@ def verify_model_consistency(
     Returns:
         True if models are consistent, False otherwise
     """
-    print(f"\n=== Model Consistency Check: {name1} vs {name2} ===")
+    logger.info(f"\n=== Model Consistency Check: {name1} vs {name2} ===")
 
     state_dict1 = model1.state_dict()
     state_dict2 = model2.state_dict()
@@ -761,15 +762,15 @@ def verify_model_consistency(
 
     # Check if keys match
     if keys1 != keys2:
-        print("❌ Models have different parameter keys!")
+        logger.error("Models have different parameter keys!")
 
         only_in_1 = keys1 - keys2
         only_in_2 = keys2 - keys1
 
         if only_in_1:
-            print(f"Keys only in {name1}: {sorted(only_in_1)}")
+            logger.error(f"Keys only in {name1}: {sorted(only_in_1)}")
         if only_in_2:
-            print(f"Keys only in {name2}: {sorted(only_in_2)}")
+            logger.error(f"Keys only in {name2}: {sorted(only_in_2)}")
 
         return False
 
@@ -779,11 +780,11 @@ def verify_model_consistency(
         shape1 = state_dict1[key].shape
         shape2 = state_dict2[key].shape
         if shape1 != shape2:
-            print(f"❌ Shape mismatch for {key}: {shape1} vs {shape2}")
+            logger.error(f"Shape mismatch for {key}: {shape1} vs {shape2}")
             shape_mismatch = True
 
     if shape_mismatch:
         return False
 
-    print("✅ Models have consistent architectures!")
+    logger.success("Models have consistent architectures!")
     return True

@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 import torch
 from flwr.client import ClientApp
 from flwr.common import Context
+from loguru import logger
 
 from adni_classification.config.config import Config
 from adni_flwr.strategies import StrategyAwareClient, StrategyFactory
@@ -37,7 +38,7 @@ class FLClientWandbLogger:
         self.wandb_enabled = WANDB_AVAILABLE and config.wandb.use_wandb
         self.run = None
         self.server_run_id = None
-        print(f"Client {client_id} WandB logging: {'enabled' if self.wandb_enabled else 'disabled'}")
+        logger.info(f"Client {client_id} WandB logging: {'enabled' if self.wandb_enabled else 'disabled'}")
 
     def init_wandb(self, run_id: Optional[str] = None) -> bool:
         """Initialize WandB run in shared mode to join server's run.
@@ -49,13 +50,15 @@ class FLClientWandbLogger:
             True if successfully joined server's run, False otherwise
         """
         if not self.wandb_enabled:
-            print(f"Client {self.client_id}: WandB disabled")
+            logger.info(f"Client {self.client_id}: WandB disabled")
             return False
 
         # Get server's run ID from parameter, fallback to environment variable
         self.server_run_id = run_id or os.environ.get("WANDB_FL_RUN_ID")
         if not self.server_run_id:
-            print(f"Client {self.client_id}: No WandB run ID provided. Will attempt to join when received from server.")
+            logger.info(
+                f"Client {self.client_id}: No WandB run ID provided. Will attempt to join when received from server."
+            )
             return False
 
         return self._connect_to_wandb()
@@ -99,7 +102,7 @@ class FLClientWandbLogger:
                 wandb.log(prefixed_metrics)
 
         except Exception as e:
-            print(f"Client {self.client_id}: Error logging metrics to WandB: {e}")
+            logger.error(f"Client {self.client_id}: Error logging metrics to WandB: {e}")
 
     def finish(self):
         """Finish client's participation in WandB run.
@@ -110,9 +113,9 @@ class FLClientWandbLogger:
         if self.wandb_enabled and self.run:
             try:
                 wandb.finish()
-                print(f"Client {self.client_id}: Finished WandB logging")
+                logger.info(f"Client {self.client_id}: Finished WandB logging")
             except Exception as e:
-                print(f"Client {self.client_id}: Error finishing WandB: {e}")
+                logger.error(f"Client {self.client_id}: Error finishing WandB: {e}")
 
     def join_wandb_run(self, run_id: str) -> bool:
         """Join an existing WandB run with the provided run ID.
@@ -127,7 +130,7 @@ class FLClientWandbLogger:
             return False
 
         if self.run:
-            print(f"Client {self.client_id}: Already connected to WandB run")
+            logger.info(f"Client {self.client_id}: Already connected to WandB run")
             return True
 
         self.server_run_id = run_id
@@ -163,7 +166,7 @@ class FLClientWandbLogger:
                 x_update_finish_state=False,  # Prevent clients from finishing the run prematurely
             )
 
-            print(f"Client {self.client_id}: Joining WandB run {self.server_run_id} in shared mode")
+            logger.info(f"Client {self.client_id}: Joining WandB run {self.server_run_id} in shared mode")
 
             # Join the server's run
             self.run = wandb.init(
@@ -173,18 +176,18 @@ class FLClientWandbLogger:
             )
 
             if self.run:
-                print(f"Client {self.client_id}: Successfully joined WandB run {self.server_run_id}")
+                logger.success(f"Client {self.client_id}: Successfully joined WandB run {self.server_run_id}")
                 # Log client configuration once after successful connection (only if not already logged)
                 if not config_already_logged:
                     self._log_config_internal(env_flag)
                 return True
             else:
-                print(f"Client {self.client_id}: Failed to join WandB run")
+                logger.error(f"Client {self.client_id}: Failed to join WandB run")
                 self.wandb_enabled = False
                 return False
 
         except Exception as e:
-            print(f"Client {self.client_id}: Error joining WandB run: {e}")
+            logger.error(f"Client {self.client_id}: Error joining WandB run: {e}")
             self.wandb_enabled = False
             return False
 
@@ -202,10 +205,10 @@ class FLClientWandbLogger:
 
             # Set persistent flag to prevent duplicate logging
             os.environ[env_flag] = "true"
-            print(f"Client {self.client_id}: Configuration logged to WandB")
+            logger.info(f"Client {self.client_id}: Configuration logged to WandB")
 
         except Exception as e:
-            print(f"Client {self.client_id}: Error logging config to WandB: {e}")
+            logger.error(f"Client {self.client_id}: Error logging config to WandB: {e}")
 
 
 def client_fn(context: Context):
@@ -259,20 +262,22 @@ def client_fn(context: Context):
         )
 
     strategy_name = config.fl.strategy
-    print(f"Initializing client {client_id} with {strategy_name} strategy, config: {config_path} on device: {device}")
+    logger.info(
+        f"Initializing client {client_id} with {strategy_name} strategy, config: {config_path} on device: {device}"
+    )
 
     # Check for SecAgg+ and validate requirements
     if strategy_name.lower() in ["secagg+", "secaggplus"]:
-        print("🔒 SecAgg+ strategy detected on client")
+        logger.info("🔒 SecAgg+ strategy detected on client")
         if not SECAGGPLUS_MOD_AVAILABLE:
             raise ValueError(
                 "SecAgg+ strategy selected but secaggplus_mod is not available. "
                 "Please ensure you have the correct Flower version with SecAgg+ support."
             )
-        print("✅ SecAgg+ mod is available")
+        logger.success("✅ SecAgg+ mod is available")
 
     # Use new strategy system (only path supported)
-    print(f"Using new strategy system with {strategy_name} strategy")
+    logger.info(f"Using new strategy system with {strategy_name} strategy")
 
     # Load model and create optimizer/criterion
     model = load_model(config)
@@ -286,7 +291,7 @@ def client_fn(context: Context):
 
     # Get total FL rounds from FL config
     total_fl_rounds = config.fl.num_rounds
-    print(f"Total FL rounds: {total_fl_rounds}")
+    logger.info(f"Total FL rounds: {total_fl_rounds}")
 
     # Load data to create criterion
     train_loader, _ = load_data(config, batch_size=config.training.batch_size)
@@ -314,7 +319,7 @@ def client_fn(context: Context):
         wandb_logger=client_wandb_logger,
     )
 
-    print(f"Client {partition_id} initialized with Context-based scheduler management")
+    logger.info(f"Client {partition_id} initialized with Context-based scheduler management")
 
     return client.to_client()
 
@@ -328,7 +333,7 @@ def secagg_plus_client_fn(context: Context):
     Returns:
         An instance of NumPyClient with SecAgg+ support
     """
-    print("🔒 SecAgg+ client function called")
+    logger.info("🔒 SecAgg+ client function called")
 
     # Verify SecAgg+ mod is available
     if not SECAGGPLUS_MOD_AVAILABLE:
@@ -361,7 +366,7 @@ def determine_strategy_from_config():
             try:
                 config = Config.from_yaml(config_file)
                 if hasattr(config.fl, "strategy") and config.fl.strategy.lower() in ["secagg+", "secaggplus"]:
-                    print(f"🔒 SecAgg+ detected in config: {config_file}")
+                    logger.info(f"🔒 SecAgg+ detected in config: {config_file}")
                     return True
             except Exception:
                 continue
@@ -374,14 +379,14 @@ def determine_strategy_from_config():
 
 # Initialize the appropriate client app based on strategy
 if determine_strategy_from_config():
-    print("🔒 Creating SecAgg+ client app with secaggplus_mod")
+    logger.info("🔒 Creating SecAgg+ client app with secaggplus_mod")
     if SECAGGPLUS_MOD_AVAILABLE:
         app = ClientApp(client_fn=secagg_plus_client_fn, mods=[secaggplus_mod])
     else:
-        print("❌ SecAgg+ detected but secaggplus_mod not available, falling back to regular client")
+        logger.error("❌ SecAgg+ detected but secaggplus_mod not available, falling back to regular client")
         app = ClientApp(client_fn=client_fn)
 else:
-    print("📊 Creating regular client app")
+    logger.info("📊 Creating regular client app")
     app = ClientApp(client_fn=client_fn)
 
 # Also create specialized apps for explicit use

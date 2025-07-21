@@ -10,6 +10,7 @@ from flwr.common import EvaluateIns, FitIns, FitRes, Parameters, ndarrays_to_par
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
+from loguru import logger
 from torch.utils.data import DataLoader
 
 from adni_classification.config.config import Config
@@ -117,6 +118,16 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         Returns:
             Numpy array mask for parameter obfuscation
         """
+        # If noise_multiplier is 0, skip obfuscation entirely for true FedAvg behavior
+        if self.noise_multiplier == 0.0:
+            # Return zero masks (no obfuscation)
+            model_params = get_params(self.model)
+            mask = []
+            for param_array in model_params:
+                param_mask = np.zeros_like(param_array)
+                mask.append(param_mask)
+            return mask
+
         # Create deterministic seed from client_id and round
         seed_str = f"{client_id}_{round_num}_{self.noise_multiplier}"
         seed = int(hashlib.md5(seed_str.encode(), usedforsecurity=False).hexdigest(), 16) % (2**32)
@@ -150,7 +161,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         if not results:
             return None
 
-        print(f"Performing differential private aggregation for {len(results)} clients")
+        logger.info(f"Performing differential private aggregation for {len(results)} clients")
 
         # Collect denoised parameters and weights
         denoised_params_list = []
@@ -185,12 +196,20 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         aggregated_params = []
 
         for i in range(len(denoised_params_list[0])):
-            # Weighted sum for each parameter
-            weighted_sum = np.zeros_like(denoised_params_list[0][i])
+            # Get the original parameter shape and dtype
+            original_param = denoised_params_list[0][i]
+            original_dtype = original_param.dtype
+
+            # Initialize weighted sum as float64 to handle arithmetic properly
+            weighted_sum = np.zeros(original_param.shape, dtype=np.float64)
 
             for _, (params, weight) in enumerate(zip(denoised_params_list, weights, strict=False)):
-                weighted_sum += params[i] * (weight / total_examples)
+                # Ensure params[i] is also float64 for arithmetic
+                param_float = params[i].astype(np.float64)
+                weighted_sum += param_float * (weight / total_examples)
 
+            # Convert back to original dtype
+            weighted_sum = weighted_sum.astype(original_dtype)
             aggregated_params.append(weighted_sum)
 
         print(f"Differential private aggregation completed with {len(results)} clients")
@@ -395,6 +414,16 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         Returns:
             List of numpy array obfuscation masks
         """
+        # If noise_multiplier is 0, skip obfuscation entirely for true FedAvg behavior
+        if self.noise_multiplier == 0.0:
+            # Return zero masks (no obfuscation)
+            model_params = get_params(self.model)
+            mask = []
+            for param_array in model_params:
+                param_mask = np.zeros_like(param_array)
+                mask.append(param_mask)
+            return mask
+
         # Create deterministic seed from client_id and round
         seed_str = f"{self.client_id}_{round_num}_{self.noise_multiplier}"
         seed = int(hashlib.md5(seed_str.encode(), usedforsecurity=False).hexdigest(), 16) % (2**32)
@@ -422,6 +451,10 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         Returns:
             List of DP-noisy parameter arrays
         """
+        # If noise_multiplier is 0, skip noise addition entirely for true FedAvg behavior
+        if self.noise_multiplier == 0.0:
+            return params
+
         noisy_params = []
 
         for param_array in params:
@@ -547,7 +580,7 @@ class DifferentialPrivacyClient(ClientStrategyBase):
 
             current_lr_after = self.optimizer.param_groups[0]["lr"]
             if current_lr_before != current_lr_after:
-                print(
+                logger.info(
                     f"FL Round {getattr(self, 'current_fl_round', '?')}: "
                     f"LR changed from {current_lr_before:.8f} to {current_lr_after:.8f}"
                 )

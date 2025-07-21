@@ -11,6 +11,7 @@ from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 from flwr.server.workflow import SecAggPlusWorkflow
+from loguru import logger
 from torch.utils.data import DataLoader
 
 from adni_classification.config.config import Config
@@ -102,13 +103,13 @@ class SecAggPlusStrategy(FLStrategyBase):
             quantization_range=self.quantization_range,
         )
 
-        print("SecAgg+ initialized with parameters:")
-        print(f"  - num_shares: {self.num_shares}")
-        print(f"  - reconstruction_threshold: {self.reconstruction_threshold}")
-        print(f"  - max_weight: {self.max_weight}")
-        print(f"  - timeout: {self.timeout}")
-        print(f"  - clipping_range: {self.clipping_range}")
-        print(f"  - quantization_range: {self.quantization_range}")
+        logger.info("SecAgg+ initialized with parameters:")
+        logger.info(f"  - num_shares: {self.num_shares}")
+        logger.info(f"  - reconstruction_threshold: {self.reconstruction_threshold}")
+        logger.info(f"  - max_weight: {self.max_weight}")
+        logger.info(f"  - timeout: {self.timeout}")
+        logger.info(f"  - clipping_range: {self.clipping_range}")
+        logger.info(f"  - quantization_range: {self.quantization_range}")
 
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
@@ -151,7 +152,7 @@ class SecAggPlusStrategy(FLStrategyBase):
         """
         self.current_round = server_round
 
-        print(f"SecAgg+ aggregation for round {server_round} with {len(results)} clients")
+        logger.info(f"SecAgg+ aggregation for round {server_round} with {len(results)} clients")
 
         # Log client training metrics
         if self.wandb_logger:
@@ -193,9 +194,9 @@ class SecAggPlusStrategy(FLStrategyBase):
             self.wandb_logger.log_metrics(secagg_metrics, prefix="server", step=server_round)
 
         # Print server model's current metrics
-        print(f"Server model metrics after round {server_round} (SecAgg+):")
+        logger.info(f"Server model metrics after round {server_round} (SecAgg+):")
         for metric_name, metric_value in secagg_metrics.items():
-            print(f"  {metric_name}: {metric_value}")
+            logger.info(f"  {metric_name}: {metric_value}")
 
         # Save frequency checkpoint
         if (
@@ -209,10 +210,10 @@ class SecAggPlusStrategy(FLStrategyBase):
     # Implement required Strategy abstract methods
     def initialize_parameters(self, client_manager):
         """Initialize global model parameters."""
-        print("SecAgg+ Strategy: Initializing parameters from server model")
+        logger.info("SecAgg+ Strategy: Initializing parameters from server model")
         ndarrays = get_params(self.model)
-        print(f"SecAgg+ Strategy: Sending {len(ndarrays)} parameter arrays to clients")
-        print(f"SecAgg+ Strategy: First few parameter shapes: {[arr.shape for arr in ndarrays[:5]]}")
+        logger.info(f"SecAgg+ Strategy: Sending {len(ndarrays)} parameter arrays to clients")
+        logger.debug(f"SecAgg+ Strategy: First few parameter shapes: {[arr.shape for arr in ndarrays[:5]]}")
         return ndarrays_to_parameters(ndarrays)
 
     def configure_fit(
@@ -325,7 +326,7 @@ class SecAggPlusClient(ClientStrategyBase):
         # Initialize mixed precision scaler
         self.scaler = torch.cuda.amp.GradScaler() if self.mixed_precision else None
 
-        print(f"SecAgg+ Client initialized for client_id: {self.client_id}")
+        logger.info(f"SecAgg+ Client initialized for client_id: {self.client_id}")
 
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
@@ -356,9 +357,9 @@ class SecAggPlusClient(ClientStrategyBase):
         # Check if SecAgg is enabled
         secagg_enabled = round_config.get("secagg_enabled", False)
         if secagg_enabled:
-            print(f"SecAgg+ enabled for client {self.client_id}, round {self.current_round}")
+            logger.info(f"SecAgg+ enabled for client {self.client_id}, round {self.current_round}")
         else:
-            print(f"Warning: SecAgg+ not enabled for client {self.client_id}, round {self.current_round}")
+            logger.warning(f"SecAgg+ not enabled for client {self.client_id}, round {self.current_round}")
 
     def train_epoch(self, train_loader: DataLoader, epoch: int, total_epochs: int, **kwargs) -> Tuple[float, float]:
         """Train the model for one epoch using SecAgg+.
@@ -425,7 +426,7 @@ class SecAggPlusClient(ClientStrategyBase):
 
             current_lr_after = self.optimizer.param_groups[0]["lr"]
             if current_lr_before != current_lr_after:
-                print(
+                logger.info(
                     f"FL Round {getattr(self, 'current_fl_round', '?')}: "
                     f"LR changed from {current_lr_before:.8f} to {current_lr_after:.8f}"
                 )

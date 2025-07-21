@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from typing import Dict, List, Tuple
 
 import numpy as np
+from loguru import logger
 
 
 def safe_weighted_average(metrics: List[Tuple[int, Dict]], verbose: bool = True) -> Dict:
@@ -19,7 +20,7 @@ def safe_weighted_average(metrics: List[Tuple[int, Dict]], verbose: bool = True)
         Aggregated metrics dictionary
     """
     if verbose:
-        print(f"safe_weighted_average: Processing {len(metrics)} metric sets")
+        logger.info(f"safe_weighted_average: Processing {len(metrics)} metric sets")
 
     # Early return for empty metrics
     if not metrics:
@@ -30,7 +31,7 @@ def safe_weighted_average(metrics: List[Tuple[int, Dict]], verbose: bool = True)
     for i, (num_examples, metric_dict) in enumerate(metrics):
         if not isinstance(metric_dict, (dict, Mapping)) or not metric_dict:
             if verbose:
-                print(f"Skipping metric set {i}: Not a valid dictionary")
+                logger.warning(f"Skipping metric set {i}: Not a valid dictionary")
             continue
 
         # Make a clean copy of the metrics dictionary with only serializable types
@@ -38,7 +39,7 @@ def safe_weighted_average(metrics: List[Tuple[int, Dict]], verbose: bool = True)
         for k, v in metric_dict.items():
             if not isinstance(k, str):
                 if verbose:
-                    print(f"Skipping non-string key {k} in metric set {i}")
+                    logger.debug(f"Skipping non-string key {k} in metric set {i}")
                 continue
 
             # Handle scalar values (numbers)
@@ -48,15 +49,15 @@ def safe_weighted_average(metrics: List[Tuple[int, Dict]], verbose: bool = True)
             elif isinstance(v, str) and k in ["predictions_json", "labels_json", "sample_info", "client_id"]:
                 clean_dict[k] = v
                 if verbose:
-                    print(f"Keeping string metric '{k}' of length {len(v)}")
+                    logger.debug(f"Keeping string metric '{k}' of length {len(v)}")
             elif verbose:
-                print(f"Skipping non-scalar/non-string value for key {k} (type: {type(v).__name__})")
+                logger.debug(f"Skipping non-scalar/non-string value for key {k} (type: {type(v).__name__})")
 
         if clean_dict:  # Only add if we have valid metrics
             filtered_metrics.append((num_examples, clean_dict))
 
     if verbose:
-        print(f"After filtering: {len(filtered_metrics)} valid metric sets")
+        logger.info(f"After filtering: {len(filtered_metrics)} valid metric sets")
 
     if not filtered_metrics:
         return {}
@@ -87,7 +88,7 @@ def safe_weighted_average(metrics: List[Tuple[int, Dict]], verbose: bool = True)
                     if key not in result:
                         result[key] = value
                         if verbose:
-                            print(f"Using value from first client for string metric '{key}'")
+                            logger.debug(f"Using value from first client for string metric '{key}'")
 
         # Only compute average for scalar metrics if we have values
         if values and weights:
@@ -99,7 +100,7 @@ def safe_weighted_average(metrics: List[Tuple[int, Dict]], verbose: bool = True)
             if key == "training_time":
                 result[key] = float(np.mean(values_array))
                 if verbose:
-                    print(f"Computed simple average for training time: {result[key]:.4f} seconds")
+                    logger.debug(f"Computed simple average for training time: {result[key]:.4f} seconds")
             # If all weights are zero, use simple average
             elif np.sum(weights_array) == 0:
                 result[key] = float(np.mean(values_array))
@@ -108,6 +109,6 @@ def safe_weighted_average(metrics: List[Tuple[int, Dict]], verbose: bool = True)
                 result[key] = float(np.sum(values_array * weights_array) / np.sum(weights_array))
 
     if verbose:
-        print(f"Aggregated {len(result)} metrics: {list(result.keys())}")
+        logger.info(f"Aggregated {len(result)} metrics: {list(result.keys())}")
 
     return result

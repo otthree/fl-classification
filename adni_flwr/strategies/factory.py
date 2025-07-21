@@ -4,6 +4,7 @@ from typing import Any, Dict, Type
 
 import torch
 import torch.nn as nn
+from loguru import logger
 
 from adni_classification.config.config import Config
 
@@ -63,7 +64,7 @@ class StrategyFactory:
         strategy_params = self._get_strategy_params(strategy_name, config)
         strategy_params.update(kwargs)
 
-        print(f"Creating {strategy_name} server strategy with params: {strategy_params}")
+        logger.info(f"Creating {strategy_name} server strategy with params: {strategy_params}")
 
         return strategy_class(config=config, model=model, wandb_logger=wandb_logger, **strategy_params)
 
@@ -107,7 +108,7 @@ class StrategyFactory:
         strategy_params = self._get_strategy_params(strategy_name, config)
         strategy_params.update(kwargs)
 
-        print(f"Creating {strategy_name} client strategy with params: {strategy_params}")
+        logger.info(f"Creating {strategy_name} client strategy with params: {strategy_params}")
 
         return strategy_class(
             config=config,
@@ -181,11 +182,11 @@ class StrategyFactory:
         """
         if server_class:
             self.SERVER_STRATEGIES[strategy_name] = server_class
-            print(f"Registered server strategy: {strategy_name}")
+            logger.info(f"Registered server strategy: {strategy_name}")
 
         if client_class:
             self.CLIENT_STRATEGIES[strategy_name] = client_class
-            print(f"Registered client strategy: {strategy_name}")
+            logger.info(f"Registered client strategy: {strategy_name}")
 
     @classmethod
     def validate_strategy_config(self, strategy_name: str, config: Config) -> bool:
