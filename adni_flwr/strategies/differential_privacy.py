@@ -37,6 +37,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         wandb_logger: Optional[Any] = None,
         noise_multiplier: float = 0.1,
         dropout_rate: float = 0.0,
+        clipping_norm: float = 1.0,
         **kwargs,
     ):
         """Initialize Differential Privacy strategy.
@@ -47,12 +48,14 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
             wandb_logger: Wandb logger instance
             noise_multiplier: Multiplier for Gaussian noise addition (DP parameter)
             dropout_rate: Dropout rate for parameter masking
+            clipping_norm: Gradient clipping norm for DP-SGD
             **kwargs: Additional DP parameters
         """
         super().__init__(config, model, wandb_logger, **kwargs)
 
         self.noise_multiplier = noise_multiplier
         self.dropout_rate = dropout_rate
+        self.clipping_norm = clipping_norm
         self.client_masks = {}  # Store client obfuscation masks
 
         # Extract specific parameters for FedAvg
@@ -88,6 +91,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         return {
             "noise_multiplier": self.noise_multiplier,
             "dropout_rate": self.dropout_rate,
+            "clipping_norm": self.clipping_norm,
             "fraction_fit": self.fedavg_strategy.fraction_fit,
             "fraction_evaluate": self.fedavg_strategy.fraction_evaluate,
             "min_fit_clients": self.fedavg_strategy.min_fit_clients,
@@ -104,6 +108,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         return {
             "noise_multiplier": self.noise_multiplier,
             "dropout_rate": self.dropout_rate,
+            "clipping_norm": self.clipping_norm,
         }
 
     def generate_client_obfuscation_mask(self, client_id: str, round_num: int) -> np.ndarray:
@@ -250,6 +255,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
             "num_failures": len(failures),
             "noise_multiplier": self.noise_multiplier,
             "dropout_rate": self.dropout_rate,
+            "clipping_norm": self.clipping_norm,
         }
 
         # Log aggregated fit metrics with DP-specific information
@@ -305,6 +311,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
             config["server_round"] = server_round
             config["noise_multiplier"] = self.noise_multiplier
             config["dropout_rate"] = self.dropout_rate
+            config["clipping_norm"] = self.clipping_norm
 
             # Create new FitIns with updated config
             updated_fit_ins = FitIns(parameters=fit_ins.parameters, config=config)
@@ -351,6 +358,7 @@ class DifferentialPrivacyClient(ClientStrategyBase):
     1. Adding calibrated Gaussian noise to model parameters
     2. Applying dropout masking for additional privacy
     3. Using simple obfuscation masks (not cryptographic)
+    4. Gradient clipping for proper DP-SGD
     """
 
     def __init__(
@@ -363,6 +371,7 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         noise_multiplier: float = 0.1,
         dropout_rate: float = 0.0,
+        clipping_norm: float = 1.0,  # Gradient clipping norm for DP-SGD
         **kwargs,
     ):
         """Initialize Differential Privacy client strategy.
@@ -376,12 +385,15 @@ class DifferentialPrivacyClient(ClientStrategyBase):
             scheduler: Learning rate scheduler (optional)
             noise_multiplier: Multiplier for Gaussian noise addition (DP parameter)
             dropout_rate: Dropout rate for parameter masking
+            clipping_norm: L2 norm threshold for gradient clipping
             **kwargs: Additional strategy parameters
         """
         super().__init__(config, model, optimizer, criterion, device, scheduler, **kwargs)
 
         self.noise_multiplier = noise_multiplier
         self.dropout_rate = dropout_rate
+        self.clipping_norm = clipping_norm
+
         # Client ID must be explicitly set - FAIL FAST if not specified
         if not hasattr(config.fl, "client_id") or config.fl.client_id is None:
             raise ValueError(
@@ -398,6 +410,11 @@ class DifferentialPrivacyClient(ClientStrategyBase):
 
         # Initialize mixed precision scaler
         self.scaler = torch.cuda.amp.GradScaler() if self.mixed_precision else None
+
+        # Store parameter scales for noise scaling
+        self.param_scales = None
+
+        logger.info(f"DP Client initialized with noise_multiplier={noise_multiplier}, clipping_norm={clipping_norm}")
 
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
@@ -457,10 +474,32 @@ class DifferentialPrivacyClient(ClientStrategyBase):
 
         noisy_params = []
 
-        for param_array in params:
-            # Add Gaussian noise for differential privacy
-            noise = np.random.normal(0, self.noise_multiplier, param_array.shape)
-            noisy_param = param_array + noise
+        # Get parameter names for scale lookup
+        param_names = [name for name, _ in self.model.named_parameters()]
+
+        for i, param_array in enumerate(params):
+            if i < len(param_names):
+                # Use parameter-aware noise scaling
+                param_scale = np.linalg.norm(param_array)
+
+                # Avoid division by zero for very small parameters
+                if param_scale < 1e-8:
+                    param_scale = 1e-8
+
+                # Scale noise relative to parameter magnitude
+                # For small parameters, use smaller noise; for large parameters, proportional noise
+                noise_scale = min(self.noise_multiplier * param_scale, self.noise_multiplier)
+
+                # Add scaled Gaussian noise
+                noise = np.random.normal(0, noise_scale, param_array.shape)
+                noisy_param = param_array + noise
+
+                logger.debug(f"Added noise to param {i}: scale={param_scale:.6f}, noise_scale={noise_scale:.6f}")
+            else:
+                # Fallback to absolute noise for any extra parameters
+                noise = np.random.normal(0, self.noise_multiplier, param_array.shape)
+                noisy_param = param_array + noise
+
             noisy_params.append(noisy_param)
 
         return noisy_params
@@ -514,9 +553,11 @@ class DifferentialPrivacyClient(ClientStrategyBase):
             self.noise_multiplier = round_config["noise_multiplier"]
         if "dropout_rate" in round_config:
             self.dropout_rate = round_config["dropout_rate"]
+        if "clipping_norm" in round_config:
+            self.clipping_norm = round_config["clipping_norm"]
 
     def train_epoch(self, train_loader: DataLoader, epoch: int, total_epochs: int, **kwargs) -> Tuple[float, float]:
-        """Train the model for one epoch using Differential Privacy.
+        """Train the model for one epoch using Differential Privacy with gradient clipping.
 
         Args:
             train_loader: Training data loader
@@ -531,12 +572,14 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         total_loss = 0.0
         total_correct = 0
         total_samples = 0
+        total_clipping_norm = 0.0
+        num_batches = 0
 
         for batch_idx, batch in enumerate(train_loader):
             images = batch["image"].to(self.device)
             labels = batch["label"].to(self.device)
 
-            # Mixed precision training
+            # Mixed precision training with gradient clipping
             if self.mixed_precision and self.scaler is not None:
                 with torch.cuda.amp.autocast():
                     outputs = self.model(images)
@@ -546,6 +589,15 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                 self.scaler.scale(loss).backward()
 
                 if (batch_idx + 1) % self.gradient_accumulation_steps == 0 or batch_idx == len(train_loader) - 1:
+                    # Unscale gradients before clipping
+                    self.scaler.unscale_(self.optimizer)
+
+                    # Apply gradient clipping for DP
+                    if self.noise_multiplier > 0.0:
+                        clipping_norm = self.clip_gradients()
+                        total_clipping_norm += clipping_norm
+                        num_batches += 1
+
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.optimizer.zero_grad()
@@ -556,6 +608,12 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                 loss.backward()
 
                 if (batch_idx + 1) % self.gradient_accumulation_steps == 0 or batch_idx == len(train_loader) - 1:
+                    # Apply gradient clipping for DP
+                    if self.noise_multiplier > 0.0:
+                        clipping_norm = self.clip_gradients()
+                        total_clipping_norm += clipping_norm
+                        num_batches += 1
+
                     self.optimizer.step()
                     self.optimizer.zero_grad()
 
@@ -567,6 +625,11 @@ class DifferentialPrivacyClient(ClientStrategyBase):
 
         avg_loss = total_loss / len(train_loader)
         avg_accuracy = 100.0 * total_correct / total_samples if total_samples > 0 else 0.0
+        avg_clipping_norm = total_clipping_norm / max(num_batches, 1)
+
+        # Log DP-specific metrics
+        if self.noise_multiplier > 0.0:
+            logger.info(f"DP Training - Avg clipping norm: {avg_clipping_norm:.6f}, Target: {self.clipping_norm}")
 
         # Step the scheduler only once per FL round (after the last local epoch)
         if self.scheduler is not None and epoch == total_epochs - 1:  # Only on last local epoch
@@ -619,4 +682,46 @@ class DifferentialPrivacyClient(ClientStrategyBase):
             Dictionary of custom DP metrics
         """
         # Return DP-specific metrics for WandB tracking
-        return {"noise_multiplier": self.noise_multiplier, "dropout_rate": self.dropout_rate}
+        return {
+            "noise_multiplier": self.noise_multiplier,
+            "dropout_rate": self.dropout_rate,
+            "clipping_norm": self.clipping_norm,
+        }
+
+    def compute_parameter_scales(self) -> Dict[str, float]:
+        """Compute parameter scales for noise scaling.
+
+        Returns:
+            Dictionary mapping parameter names to their L2 norms
+        """
+        scales = {}
+        with torch.no_grad():
+            for name, param in self.model.named_parameters():
+                if param.requires_grad:
+                    scales[name] = param.norm().item()
+        return scales
+
+    def clip_gradients(self) -> float:
+        """Clip gradients according to DP-SGD protocol.
+
+        Returns:
+            Actual clipping norm applied
+        """
+        if self.clipping_norm <= 0.0:
+            return 0.0
+
+        # Compute total gradient norm
+        total_norm = 0.0
+        for param in self.model.parameters():
+            if param.grad is not None:
+                total_norm += param.grad.norm().item() ** 2
+        total_norm = total_norm**0.5
+
+        # Apply clipping if necessary
+        if total_norm > self.clipping_norm:
+            clipping_factor = self.clipping_norm / total_norm
+            for param in self.model.parameters():
+                if param.grad is not None:
+                    param.grad.mul_(clipping_factor)
+            return self.clipping_norm
+        return total_norm

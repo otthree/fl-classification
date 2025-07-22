@@ -117,6 +117,7 @@ class FLConfig:
     # Differential Privacy specific parameters
     dp_noise_multiplier: float = 0.1
     dp_dropout_rate: float = 0.0
+    dp_clipping_norm: float = 1.0  # Gradient clipping norm for DP-SGD
 
     # SecAgg+ (real secure aggregation) specific parameters
     secagg_num_shares: int = 3  # Number of secret shares for each client
