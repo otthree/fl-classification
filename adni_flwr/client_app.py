@@ -1,7 +1,7 @@
 """Client application for ADNI Federated Learning."""
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 from flwr.client import ClientApp
@@ -26,6 +26,14 @@ try:
 except ImportError:
     SECAGGPLUS_MOD_AVAILABLE = False
     secaggplus_mod = None
+
+try:
+    from flwr.client.mod import LocalDpMod
+
+    LOCALDPMOD_AVAILABLE = True
+except ImportError:
+    LOCALDPMOD_AVAILABLE = False
+    LocalDpMod = None
 
 
 class FLClientWandbLogger:
@@ -154,7 +162,7 @@ class FLClientWandbLogger:
             return False
 
         try:
-            # Set up environment variable for config logging tracking BEFORE wandb.init()
+            # Set up environment variable flag for config logging
             env_flag = f"WANDB_CLIENT_{self.client_id}_CONFIG_LOGGED"
             config_already_logged = os.environ.get(env_flag) == "true"
 
@@ -197,7 +205,7 @@ class FLClientWandbLogger:
             # Use the existing to_dict method from Config class
             config_dict = self.config.to_dict()
 
-            # Add client-specific prefix to avoid conflicts in shared WandB run
+            # Add client-specific prefix
             prefixed_config = {f"client_{self.client_id}": config_dict}
 
             # Log the configuration
@@ -257,7 +265,7 @@ def client_fn(context: Context):
         raise ValueError(
             f"ERROR: 'strategy' not specified in client config {config_path}. "
             f"You must explicitly set 'strategy' in the FL config section. "
-            f"Available strategies: fedavg, fedprox, secagg, secagg+. "
+            f"Available strategies: fedavg, fedprox, secagg, secagg+, differential_privacy. "
             f"This prevents dangerous implicit defaults that could cause strategy mismatch between clients and server."
         )
 
@@ -266,15 +274,8 @@ def client_fn(context: Context):
         f"Initializing client {client_id} with {strategy_name} strategy, config: {config_path} on device: {device}"
     )
 
-    # Check for SecAgg+ and validate requirements
-    if strategy_name.lower() in ["secagg+", "secaggplus"]:
-        logger.info("🔒 SecAgg+ strategy detected on client")
-        if not SECAGGPLUS_MOD_AVAILABLE:
-            raise ValueError(
-                "SecAgg+ strategy selected but secaggplus_mod is not available. "
-                "Please ensure you have the correct Flower version with SecAgg+ support."
-            )
-        logger.success("✅ SecAgg+ mod is available")
+    # Validate strategy requirements
+    _validate_strategy_requirements(strategy_name)
 
     # Use new strategy system (only path supported)
     logger.info(f"Using new strategy system with {strategy_name} strategy")
@@ -324,32 +325,104 @@ def client_fn(context: Context):
     return client.to_client()
 
 
-def secagg_plus_client_fn(context: Context):
-    """Special client function for SecAgg+ that includes proper mod support.
+def _validate_strategy_requirements(strategy_name: str):
+    """Validate that required dependencies are available for the strategy.
 
     Args:
-        context: Context containing client configuration
+        strategy_name: Name of the strategy to validate
+
+    Raises:
+        ValueError: If required dependencies are not available
+    """
+    strategy_lower = strategy_name.lower()
+
+    if strategy_lower in ["secagg+", "secaggplus"]:
+        logger.info("🔒 SecAgg+ strategy detected on client")
+        if not SECAGGPLUS_MOD_AVAILABLE:
+            raise ValueError(
+                "SecAgg+ strategy selected but secaggplus_mod is not available. "
+                "Please ensure you have the correct Flower version with SecAgg+ support."
+            )
+        logger.success("✅ SecAgg+ mod is available")
+
+    elif strategy_lower == "differential_privacy":
+        logger.info("🔒 Differential Privacy strategy detected on client")
+        if not LOCALDPMOD_AVAILABLE:
+            raise ValueError(
+                "Differential Privacy strategy selected but LocalDpMod is not available. "
+                "Please ensure you have the correct Flower version with LocalDpMod support."
+            )
+        logger.success("✅ LocalDpMod is available")
+
+
+def create_mods_for_strategy(strategy_type: str, config: Optional[Config] = None) -> List[Any]:
+    """Create the appropriate mods list based on strategy type.
+
+    Args:
+        strategy_type: Type of strategy ("regular", "secagg+", "differential_privacy")
+        config: Configuration object (required for differential_privacy)
 
     Returns:
-        An instance of NumPyClient with SecAgg+ support
+        List of mods for the ClientApp
+
+    Raises:
+        ValueError: If required dependencies are not available or config is missing
     """
-    logger.info("🔒 SecAgg+ client function called")
+    if strategy_type == "secagg+":
+        if not SECAGGPLUS_MOD_AVAILABLE:
+            raise ValueError("SecAgg+ strategy requires secaggplus_mod which is not available")
+        return [secaggplus_mod]
 
-    # Verify SecAgg+ mod is available
-    if not SECAGGPLUS_MOD_AVAILABLE:
-        raise ValueError(
-            "SecAgg+ client function called but secaggplus_mod is not available. "
-            "Please ensure you have the correct Flower version with SecAgg+ support."
-        )
+    elif strategy_type == "differential_privacy":
+        if not LOCALDPMOD_AVAILABLE:
+            raise ValueError("Differential Privacy strategy requires LocalDpMod which is not available")
 
-    # Use the regular client function for the actual client creation
-    # The difference is in how the ClientApp is created (with mods)
-    return client_fn(context)
+        if config is None:
+            # Use default parameters for initialization
+            logger.warning("No config provided for LocalDpMod, using default parameters")
+            return [LocalDpMod(clipping_norm=1.0, sensitivity=1.0, epsilon=1.0, delta=1e-5)]
+
+        # Create LocalDpMod with config parameters
+        return [create_local_dp_mod(config)]
+
+    else:
+        # Regular strategy - no mods
+        return []
 
 
-# Check if we need SecAgg+ support by examining environment or context
-def determine_strategy_from_config():
-    """Determine if SecAgg+ is being used by checking available config files."""
+def create_local_dp_mod(config: Config) -> LocalDpMod:
+    """Create LocalDpMod instance with parameters from config.
+
+    Args:
+        config: Configuration object containing DP parameters
+
+    Returns:
+        LocalDpMod instance configured for differential privacy
+    """
+    if not LOCALDPMOD_AVAILABLE:
+        raise ValueError("LocalDpMod is not available")
+
+    # Get DP parameters from config or use defaults
+    clipping_norm = getattr(config.fl, "clipping_norm", 1.0)
+
+    # Calculate sensitivity (typically equal to clipping norm for gradient updates)
+    sensitivity = clipping_norm
+
+    # Get privacy parameters from config
+    epsilon = getattr(config.fl, "epsilon", 1.0)
+    delta = getattr(config.fl, "delta", 1e-5)
+
+    logger.info("Creating LocalDpMod with parameters:")
+    logger.info(f"  clipping_norm: {clipping_norm}")
+    logger.info(f"  sensitivity: {sensitivity}")
+    logger.info(f"  epsilon: {epsilon}")
+    logger.info(f"  delta: {delta}")
+
+    return LocalDpMod(clipping_norm, sensitivity, epsilon, delta)
+
+
+def determine_strategy_from_config() -> str:
+    """Determine which strategy is being used by checking available config files."""
     try:
         # This is a heuristic to determine strategy during app initialization
         # We'll try to read the strategy from environment or use default client_fn
@@ -361,38 +434,73 @@ def determine_strategy_from_config():
             if arg.endswith(".yaml") and "client" in arg and os.path.exists(arg):
                 config_files.append(arg)
 
-        # If we found config files, check if any use SecAgg+
+        # If we found config files, check strategy
         for config_file in config_files:
             try:
                 config = Config.from_yaml(config_file)
-                if hasattr(config.fl, "strategy") and config.fl.strategy.lower() in ["secagg+", "secaggplus"]:
-                    logger.info(f"🔒 SecAgg+ detected in config: {config_file}")
-                    return True
+                if hasattr(config.fl, "strategy"):
+                    strategy = config.fl.strategy.lower()
+                    if strategy in ["secagg+", "secaggplus"]:
+                        logger.info(f"🔒 SecAgg+ detected in config: {config_file}")
+                        return "secagg+"
+                    elif strategy == "differential_privacy":
+                        logger.info(f"🔒 Differential Privacy detected in config: {config_file}")
+                        return "differential_privacy"
             except Exception:
                 continue
 
-        return False
+        return "regular"
     except Exception:
         # If we can't determine, default to regular client
-        return False
+        return "regular"
 
 
-# Initialize the appropriate client app based on strategy
-if determine_strategy_from_config():
-    logger.info("🔒 Creating SecAgg+ client app with secaggplus_mod")
-    if SECAGGPLUS_MOD_AVAILABLE:
-        app = ClientApp(client_fn=secagg_plus_client_fn, mods=[secaggplus_mod])
-    else:
-        logger.error("❌ SecAgg+ detected but secaggplus_mod not available, falling back to regular client")
-        app = ClientApp(client_fn=client_fn)
-else:
-    logger.info("📊 Creating regular client app")
-    app = ClientApp(client_fn=client_fn)
+def create_client_app(strategy_type: str = None, config: Optional[Config] = None) -> ClientApp:
+    """Create a ClientApp with appropriate mods based on strategy type.
 
-# Also create specialized apps for explicit use
-regular_app = ClientApp(client_fn=client_fn)
+    Args:
+        strategy_type: Type of strategy to create app for. If None, auto-detect from config files.
+        config: Configuration object (optional, used for strategy-specific parameters)
 
+    Returns:
+        ClientApp instance with appropriate mods
+    """
+    if strategy_type is None:
+        strategy_type = determine_strategy_from_config()
+
+    try:
+        # Create mods for the strategy
+        mods = create_mods_for_strategy(strategy_type, config)
+
+        # Log the app creation
+        if strategy_type == "secagg+":
+            logger.info("🔒 Creating SecAgg+ client app with secaggplus_mod")
+        elif strategy_type == "differential_privacy":
+            logger.info("🔒 Creating Differential Privacy client app with LocalDpMod")
+        else:
+            logger.info("📊 Creating regular client app")
+
+        return ClientApp(client_fn=client_fn, mods=mods)
+
+    except ValueError as e:
+        logger.error(f"❌ {e}, falling back to regular client")
+        return ClientApp(client_fn=client_fn)
+
+
+# Create the main app instance with auto-detection
+app = create_client_app()
+
+# Create specialized app instances for explicit use
+regular_app = create_client_app("regular")
+
+# Create SecAgg+ app if available
 if SECAGGPLUS_MOD_AVAILABLE:
-    secagg_plus_app = ClientApp(client_fn=secagg_plus_client_fn, mods=[secaggplus_mod])
+    secagg_plus_app = create_client_app("secagg+")
 else:
     secagg_plus_app = None
+
+# Create Differential Privacy app if available
+if LOCALDPMOD_AVAILABLE:
+    differential_privacy_app = create_client_app("differential_privacy")
+else:
+    differential_privacy_app = None

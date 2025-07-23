@@ -1,12 +1,10 @@
-"""Differential Privacy (DP) strategy implementation for Federated Learning."""
+"""Differential Privacy (DP) strategy implementation for Federated Learning using Flower's LocalDpMod."""
 
-import hashlib
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
-from flwr.common import EvaluateIns, FitIns, FitRes, Parameters, ndarrays_to_parameters, parameters_to_ndarrays
+from flwr.common import EvaluateIns, FitIns, FitRes, Parameters, ndarrays_to_parameters
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
@@ -22,12 +20,10 @@ from .base import ClientStrategyBase, FLStrategyBase
 class DifferentialPrivacyStrategy(FLStrategyBase):
     """Server-side Differential Privacy strategy for Federated Learning with comprehensive WandB logging.
 
-    This strategy implements differential privacy in federated learning by:
-    1. Adding Gaussian noise to client parameters for privacy protection
-    2. Applying dropout masking for additional privacy
-    3. Using deterministic obfuscation masks
+    This strategy implements differential privacy in federated learning by working with clients
+    that use Flower's LocalDpMod for standardized local differential privacy.
 
-    Note: This provides privacy through noise addition, which may affect model accuracy.
+    Note: This server strategy works with clients using LocalDpMod for privacy protection.
     """
 
     def __init__(
@@ -36,7 +32,6 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         model: nn.Module,
         wandb_logger: Optional[Any] = None,
         noise_multiplier: float = 0.1,
-        dropout_rate: float = 0.0,
         clipping_norm: float = 1.0,
         **kwargs,
     ):
@@ -47,16 +42,13 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
             model: PyTorch model
             wandb_logger: Wandb logger instance
             noise_multiplier: Multiplier for Gaussian noise addition (DP parameter)
-            dropout_rate: Dropout rate for parameter masking
             clipping_norm: Gradient clipping norm for DP-SGD
             **kwargs: Additional DP parameters
         """
         super().__init__(config, model, wandb_logger, **kwargs)
 
         self.noise_multiplier = noise_multiplier
-        self.dropout_rate = dropout_rate
         self.clipping_norm = clipping_norm
-        self.client_masks = {}  # Store client obfuscation masks
 
         # Extract specific parameters for FedAvg
         fedavg_params = {
@@ -82,15 +74,17 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         # Load server-side validation dataset for global evaluation
         self._load_server_validation_data()
 
+        logger.info("DifferentialPrivacyStrategy initialized with LocalDpMod support")
+        logger.info(f"DP parameters: noise_multiplier={noise_multiplier}, clipping_norm={clipping_norm}")
+
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
-        return "differential_privacy"
+        return "differential_privacy_localdpmod"
 
     def get_strategy_params(self) -> Dict[str, Any]:
         """Return strategy-specific parameters."""
         return {
             "noise_multiplier": self.noise_multiplier,
-            "dropout_rate": self.dropout_rate,
             "clipping_norm": self.clipping_norm,
             "fraction_fit": self.fedavg_strategy.fraction_fit,
             "fraction_evaluate": self.fedavg_strategy.fraction_evaluate,
@@ -107,119 +101,9 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         """
         return {
             "noise_multiplier": self.noise_multiplier,
-            "dropout_rate": self.dropout_rate,
             "clipping_norm": self.clipping_norm,
+            "uses_localdpmod": True,
         }
-
-    def generate_client_obfuscation_mask(self, client_id: str, round_num: int) -> np.ndarray:
-        """Generate a deterministic obfuscation mask for a client.
-
-        Note: This is simple obfuscation, not cryptographic secure aggregation.
-
-        Args:
-            client_id: Client identifier
-            round_num: Current round number
-
-        Returns:
-            Numpy array mask for parameter obfuscation
-        """
-        # If noise_multiplier is 0, skip obfuscation entirely for true FedAvg behavior
-        if self.noise_multiplier == 0.0:
-            # Return zero masks (no obfuscation)
-            model_params = get_params(self.model)
-            mask = []
-            for param_array in model_params:
-                param_mask = np.zeros_like(param_array)
-                mask.append(param_mask)
-            return mask
-
-        # Create deterministic seed from client_id and round
-        seed_str = f"{client_id}_{round_num}_{self.noise_multiplier}"
-        seed = int(hashlib.md5(seed_str.encode(), usedforsecurity=False).hexdigest(), 16) % (2**32)
-
-        # Set numpy random seed for reproducibility
-        np.random.seed(seed)
-
-        # Generate mask with same shape as model parameters
-        model_params = get_params(self.model)
-        mask = []
-
-        for param_array in model_params:
-            # Generate random obfuscation mask for each parameter array
-            param_mask = np.random.uniform(-1, 1, param_array.shape)
-            mask.append(param_mask)
-
-        return mask
-
-    def differential_private_aggregate(
-        self, results: List[Tuple[ClientProxy, FitRes]], round_num: int
-    ) -> Optional[Parameters]:
-        """Perform differential private aggregation of client updates.
-
-        Args:
-            results: List of client results
-            round_num: Current round number
-
-        Returns:
-            Aggregated parameters with DP guarantees
-        """
-        if not results:
-            return None
-
-        logger.info(f"Performing differential private aggregation for {len(results)} clients")
-
-        # Collect denoised parameters and weights
-        denoised_params_list = []
-        weights = []
-        client_masks = []
-
-        for client_proxy, fit_res in results:
-            client_id = str(client_proxy.cid)
-
-            # Generate obfuscation mask for this client
-            client_mask = self.generate_client_obfuscation_mask(client_id, round_num)
-            client_masks.append(client_mask)
-
-            # Get client parameters (already contain DP noise)
-            client_params = parameters_to_ndarrays(fit_res.parameters)
-
-            # Remove obfuscation mask that was added by client
-            deobfuscated_params = []
-            for param, mask in zip(client_params, client_mask, strict=False):
-                deobfuscated_param = param - mask
-                deobfuscated_params.append(deobfuscated_param)
-
-            denoised_params_list.append(deobfuscated_params)
-            weights.append(fit_res.num_examples)
-
-        # Perform weighted average (preserving DP noise)
-        total_examples = sum(weights)
-        if total_examples == 0:
-            return None
-
-        # Initialize aggregated parameters
-        aggregated_params = []
-
-        for i in range(len(denoised_params_list[0])):
-            # Get the original parameter shape and dtype
-            original_param = denoised_params_list[0][i]
-            original_dtype = original_param.dtype
-
-            # Initialize weighted sum as float64 to handle arithmetic properly
-            weighted_sum = np.zeros(original_param.shape, dtype=np.float64)
-
-            for _, (params, weight) in enumerate(zip(denoised_params_list, weights, strict=False)):
-                # Ensure params[i] is also float64 for arithmetic
-                param_float = params[i].astype(np.float64)
-                weighted_sum += param_float * (weight / total_examples)
-
-            # Convert back to original dtype
-            weighted_sum = weighted_sum.astype(original_dtype)
-            aggregated_params.append(weighted_sum)
-
-        print(f"Differential private aggregation completed with {len(results)} clients")
-
-        return ndarrays_to_parameters(aggregated_params)
 
     def aggregate_fit(
         self,
@@ -227,7 +111,11 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         results: List[Tuple[ClientProxy, FitRes]],
         failures: List[BaseException],
     ) -> Tuple[Optional[Parameters], Dict[str, float]]:
-        """Aggregate fit results using differential privacy with enhanced logging."""
+        """Aggregate fit results from clients using LocalDpMod.
+
+        Since LocalDpMod handles differential privacy on the client side,
+        the server can perform standard aggregation.
+        """
         self.current_round = server_round
 
         # Log client training metrics
@@ -239,8 +127,8 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
                     metrics_to_log = {k: v for k, v in client_metrics.items() if k != "client_id"}
                     self.wandb_logger.log_metrics(metrics_to_log, prefix=f"client_{client_id}/fit", step=server_round)
 
-        # Perform differential private aggregation
-        aggregated_parameters = self.differential_private_aggregate(results, server_round)
+        # Use standard FedAvg aggregation since LocalDpMod handles privacy on client side
+        aggregated_parameters, metrics = self.fedavg_strategy.aggregate_fit(server_round, results, failures)
 
         if aggregated_parameters is None:
             return None, {}
@@ -249,24 +137,24 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         param_arrays = safe_parameters_to_ndarrays(aggregated_parameters)
         set_params(self.model, param_arrays)
 
-        # Collect metrics with DP-specific information
-        metrics = {
+        # Add DP-specific information to metrics
+        dp_metrics = {
             "num_clients": len(results),
             "num_failures": len(failures),
             "noise_multiplier": self.noise_multiplier,
-            "dropout_rate": self.dropout_rate,
             "clipping_norm": self.clipping_norm,
+            "uses_localdpmod": True,
         }
+        metrics.update(dp_metrics)
 
         # Log aggregated fit metrics with DP-specific information
         if self.wandb_logger and metrics:
-            metrics_with_dp = metrics.copy()
-            self.wandb_logger.log_metrics(metrics_with_dp, prefix="server", step=server_round)
+            self.wandb_logger.log_metrics(metrics, prefix="server", step=server_round)
 
         # Print server model's current metrics
         print(
             f"Server model metrics after round {server_round} "
-            f"(DP noise={self.noise_multiplier}, dropout={self.dropout_rate}):"
+            f"(LocalDpMod DP noise={self.noise_multiplier}, clipping={self.clipping_norm}):"
         )
         for metric_name, metric_value in metrics.items():
             print(f"  {metric_name}: {metric_value}")
@@ -283,12 +171,6 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
     # Implement required Strategy abstract methods
     def initialize_parameters(self, client_manager):
         """Initialize global model parameters."""
-        # Instead of delegating to fedavg_strategy (which returns None),
-        # provide initial parameters from our server model
-        from flwr.common import ndarrays_to_parameters
-
-        from adni_flwr.task import get_params
-
         print("DifferentialPrivacyStrategy: Initializing parameters from server model")
         ndarrays = get_params(self.model)
         print(f"DifferentialPrivacyStrategy: Sending {len(ndarrays)} parameter arrays to clients")
@@ -310,8 +192,8 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
             config = fit_ins.config.copy() if fit_ins.config else {}
             config["server_round"] = server_round
             config["noise_multiplier"] = self.noise_multiplier
-            config["dropout_rate"] = self.dropout_rate
             config["clipping_norm"] = self.clipping_norm
+            config["uses_localdpmod"] = True
 
             # Create new FitIns with updated config
             updated_fit_ins = FitIns(parameters=fit_ins.parameters, config=config)
@@ -352,13 +234,10 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
 
 
 class DifferentialPrivacyClient(ClientStrategyBase):
-    """Client-side Differential Privacy strategy for Federated Learning.
+    """Client-side Differential Privacy strategy for Federated Learning using Flower's LocalDpMod.
 
-    This client strategy implements differential privacy by:
-    1. Adding calibrated Gaussian noise to model parameters
-    2. Applying dropout masking for additional privacy
-    3. Using simple obfuscation masks (not cryptographic)
-    4. Gradient clipping for proper DP-SGD
+    This client strategy now uses Flower's official LocalDpMod for standardized local differential privacy.
+    The LocalDpMod should be added to the ClientApp's mods list.
     """
 
     def __init__(
@@ -370,8 +249,7 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         device: torch.device,
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         noise_multiplier: float = 0.1,
-        dropout_rate: float = 0.0,
-        clipping_norm: float = 1.0,  # Gradient clipping norm for DP-SGD
+        clipping_norm: float = 1.0,
         **kwargs,
     ):
         """Initialize Differential Privacy client strategy.
@@ -384,14 +262,12 @@ class DifferentialPrivacyClient(ClientStrategyBase):
             device: Device to use for computation
             scheduler: Learning rate scheduler (optional)
             noise_multiplier: Multiplier for Gaussian noise addition (DP parameter)
-            dropout_rate: Dropout rate for parameter masking
             clipping_norm: L2 norm threshold for gradient clipping
             **kwargs: Additional strategy parameters
         """
         super().__init__(config, model, optimizer, criterion, device, scheduler, **kwargs)
 
         self.noise_multiplier = noise_multiplier
-        self.dropout_rate = dropout_rate
         self.clipping_norm = clipping_norm
 
         # Client ID must be explicitly set - FAIL FAST if not specified
@@ -404,127 +280,20 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         self.client_id = config.fl.client_id
         self.current_round = 0
 
-        # DP-specific parameters
+        # Training parameters
         self.mixed_precision = config.training.mixed_precision
         self.gradient_accumulation_steps = config.training.gradient_accumulation_steps
 
         # Initialize mixed precision scaler
         self.scaler = torch.cuda.amp.GradScaler() if self.mixed_precision else None
 
-        # Store parameter scales for noise scaling
-        self.param_scales = None
-
-        logger.info(f"DP Client initialized with noise_multiplier={noise_multiplier}, clipping_norm={clipping_norm}")
+        logger.info("DP Client initialized with LocalDpMod support")
+        logger.info(f"DP parameters: noise_multiplier={noise_multiplier}, clipping_norm={clipping_norm}")
+        logger.info("Note: LocalDpMod should be added to ClientApp's mods list for DP functionality")
 
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
-        return "differential_privacy"
-
-    def generate_client_obfuscation_mask(self, round_num: int) -> List[np.ndarray]:
-        """Generate a deterministic obfuscation mask for this client.
-
-        Note: This is simple obfuscation, not cryptographic secure aggregation.
-
-        Args:
-            round_num: Current round number
-
-        Returns:
-            List of numpy array obfuscation masks
-        """
-        # If noise_multiplier is 0, skip obfuscation entirely for true FedAvg behavior
-        if self.noise_multiplier == 0.0:
-            # Return zero masks (no obfuscation)
-            model_params = get_params(self.model)
-            mask = []
-            for param_array in model_params:
-                param_mask = np.zeros_like(param_array)
-                mask.append(param_mask)
-            return mask
-
-        # Create deterministic seed from client_id and round
-        seed_str = f"{self.client_id}_{round_num}_{self.noise_multiplier}"
-        seed = int(hashlib.md5(seed_str.encode(), usedforsecurity=False).hexdigest(), 16) % (2**32)
-
-        # Set numpy random seed for reproducibility
-        np.random.seed(seed)
-
-        # Generate mask with same shape as model parameters
-        model_params = get_params(self.model)
-        mask = []
-
-        for param_array in model_params:
-            # Generate random obfuscation mask for each parameter array
-            param_mask = np.random.uniform(-1, 1, param_array.shape)
-            mask.append(param_mask)
-
-        return mask
-
-    def add_gaussian_noise_for_privacy(self, params: List[np.ndarray]) -> List[np.ndarray]:
-        """Add calibrated Gaussian noise to parameters for differential privacy.
-
-        Args:
-            params: List of parameter arrays
-
-        Returns:
-            List of DP-noisy parameter arrays
-        """
-        # If noise_multiplier is 0, skip noise addition entirely for true FedAvg behavior
-        if self.noise_multiplier == 0.0:
-            return params
-
-        noisy_params = []
-
-        # Get parameter names for scale lookup
-        param_names = [name for name, _ in self.model.named_parameters()]
-
-        for i, param_array in enumerate(params):
-            if i < len(param_names):
-                # Use parameter-aware noise scaling
-                param_scale = np.linalg.norm(param_array)
-
-                # Avoid division by zero for very small parameters
-                if param_scale < 1e-8:
-                    param_scale = 1e-8
-
-                # Scale noise relative to parameter magnitude
-                # For small parameters, use smaller noise; for large parameters, proportional noise
-                noise_scale = min(self.noise_multiplier * param_scale, self.noise_multiplier)
-
-                # Add scaled Gaussian noise
-                noise = np.random.normal(0, noise_scale, param_array.shape)
-                noisy_param = param_array + noise
-
-                logger.debug(f"Added noise to param {i}: scale={param_scale:.6f}, noise_scale={noise_scale:.6f}")
-            else:
-                # Fallback to absolute noise for any extra parameters
-                noise = np.random.normal(0, self.noise_multiplier, param_array.shape)
-                noisy_param = param_array + noise
-
-            noisy_params.append(noisy_param)
-
-        return noisy_params
-
-    def apply_dropout_mask(self, params: List[np.ndarray]) -> List[np.ndarray]:
-        """Apply dropout mask to parameters for additional privacy.
-
-        Args:
-            params: List of parameter arrays
-
-        Returns:
-            List of dropout-masked parameter arrays
-        """
-        if self.dropout_rate == 0.0:
-            return params
-
-        masked_params = []
-
-        for param_array in params:
-            # Create dropout mask
-            mask = np.random.binomial(1, 1 - self.dropout_rate, param_array.shape)
-            masked_param = param_array * mask
-            masked_params.append(masked_param)
-
-        return masked_params
+        return "differential_privacy_localdpmod"
 
     def prepare_for_round(self, server_params: Parameters, round_config: Dict[str, Any]):
         """Prepare the client for a new training round.
@@ -551,13 +320,15 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         # Update DP parameters if specified in round config
         if "noise_multiplier" in round_config:
             self.noise_multiplier = round_config["noise_multiplier"]
-        if "dropout_rate" in round_config:
-            self.dropout_rate = round_config["dropout_rate"]
         if "clipping_norm" in round_config:
             self.clipping_norm = round_config["clipping_norm"]
 
+        logger.info(f"Client prepared for round {self.current_round} with LocalDpMod DP parameters")
+
     def train_epoch(self, train_loader: DataLoader, epoch: int, total_epochs: int, **kwargs) -> Tuple[float, float]:
-        """Train the model for one epoch using Differential Privacy with gradient clipping.
+        """Train the model for one epoch with gradient clipping for DP-SGD.
+
+        Note: LocalDpMod handles the differential privacy noise addition to parameters.
 
         Args:
             train_loader: Training data loader
@@ -592,11 +363,10 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                     # Unscale gradients before clipping
                     self.scaler.unscale_(self.optimizer)
 
-                    # Apply gradient clipping for DP
-                    if self.noise_multiplier > 0.0:
-                        clipping_norm = self.clip_gradients()
-                        total_clipping_norm += clipping_norm
-                        num_batches += 1
+                    # Apply gradient clipping for DP-SGD
+                    clipping_norm = self.clip_gradients()
+                    total_clipping_norm += clipping_norm
+                    num_batches += 1
 
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
@@ -608,11 +378,10 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                 loss.backward()
 
                 if (batch_idx + 1) % self.gradient_accumulation_steps == 0 or batch_idx == len(train_loader) - 1:
-                    # Apply gradient clipping for DP
-                    if self.noise_multiplier > 0.0:
-                        clipping_norm = self.clip_gradients()
-                        total_clipping_norm += clipping_norm
-                        num_batches += 1
+                    # Apply gradient clipping for DP-SGD
+                    clipping_norm = self.clip_gradients()
+                    total_clipping_norm += clipping_norm
+                    num_batches += 1
 
                     self.optimizer.step()
                     self.optimizer.zero_grad()
@@ -628,8 +397,7 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         avg_clipping_norm = total_clipping_norm / max(num_batches, 1)
 
         # Log DP-specific metrics
-        if self.noise_multiplier > 0.0:
-            logger.info(f"DP Training - Avg clipping norm: {avg_clipping_norm:.6f}, Target: {self.clipping_norm}")
+        logger.info(f"DP Training - Avg clipping norm: {avg_clipping_norm:.6f}, Target: {self.clipping_norm}")
 
         # Step the scheduler only once per FL round (after the last local epoch)
         if self.scheduler is not None and epoch == total_epochs - 1:  # Only on last local epoch
@@ -650,31 +418,6 @@ class DifferentialPrivacyClient(ClientStrategyBase):
 
         return avg_loss, avg_accuracy
 
-    def get_differential_private_parameters(self) -> List[np.ndarray]:
-        """Get model parameters with differential privacy applied.
-
-        Returns:
-            List of DP-protected parameter arrays
-        """
-        # Get current model parameters
-        params = get_params(self.model)
-
-        # Apply dropout mask for additional privacy
-        params = self.apply_dropout_mask(params)
-
-        # Add Gaussian noise for differential privacy
-        params = self.add_gaussian_noise_for_privacy(params)
-
-        # Generate and apply obfuscation mask (simple obfuscation, not cryptographic)
-        client_mask = self.generate_client_obfuscation_mask(self.current_round)
-        obfuscated_params = []
-
-        for param, mask in zip(params, client_mask, strict=False):
-            obfuscated_param = param + mask
-            obfuscated_params.append(obfuscated_param)
-
-        return obfuscated_params
-
     def get_custom_metrics(self) -> Dict[str, Any]:
         """Return custom Differential Privacy-specific metrics.
 
@@ -684,22 +427,9 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         # Return DP-specific metrics for WandB tracking
         return {
             "noise_multiplier": self.noise_multiplier,
-            "dropout_rate": self.dropout_rate,
             "clipping_norm": self.clipping_norm,
+            "uses_localdpmod": True,
         }
-
-    def compute_parameter_scales(self) -> Dict[str, float]:
-        """Compute parameter scales for noise scaling.
-
-        Returns:
-            Dictionary mapping parameter names to their L2 norms
-        """
-        scales = {}
-        with torch.no_grad():
-            for name, param in self.model.named_parameters():
-                if param.requires_grad:
-                    scales[name] = param.norm().item()
-        return scales
 
     def clip_gradients(self) -> float:
         """Clip gradients according to DP-SGD protocol.

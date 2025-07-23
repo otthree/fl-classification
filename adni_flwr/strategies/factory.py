@@ -144,7 +144,6 @@ class StrategyFactory:
 
         elif strategy_name == "differential_privacy":
             params.setdefault("noise_multiplier", getattr(config.fl, "dp_noise_multiplier", 0.1))
-            params.setdefault("dropout_rate", getattr(config.fl, "dp_dropout_rate", 0.0))
             params.setdefault("clipping_norm", getattr(config.fl, "dp_clipping_norm", 1.0))
 
         elif strategy_name in ["secagg+", "secaggplus"]:
@@ -251,16 +250,12 @@ class StrategyConfigValidator:
             ValueError: If configuration is invalid
         """
         noise_multiplier = getattr(config.fl, "dp_noise_multiplier", 0.1)
-        dropout_rate = getattr(config.fl, "dp_dropout_rate", 0.0)
         clipping_norm = getattr(config.fl, "dp_clipping_norm", 1.0)
 
         if not isinstance(noise_multiplier, (int, float)) or noise_multiplier < 0:
             raise ValueError(
                 f"Differential Privacy noise_multiplier must be a non-negative number, got: {noise_multiplier}"
             )
-
-        if not isinstance(dropout_rate, (int, float)) or not (0 <= dropout_rate <= 1):
-            raise ValueError(f"Differential Privacy dropout_rate must be a number in [0, 1], got: {dropout_rate}")
 
         if not isinstance(clipping_norm, (int, float)) or clipping_norm <= 0:
             raise ValueError(f"Differential Privacy clipping_norm must be a positive number, got: {clipping_norm}")
