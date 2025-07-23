@@ -241,6 +241,10 @@ class FlowerLocalSimulationRunner:
                 serverapp_component = "adni_flwr.server_app:secagg_plus_app"
                 clientapp_component = "adni_flwr.client_app:secagg_plus_app"
                 print(f"🔒 Using SecAgg+ components for strategy: {strategy}")
+            elif strategy in ["differential_privacy", "dp", "fedavg_dp"]:
+                serverapp_component = "adni_flwr.server_app:app"
+                clientapp_component = "adni_flwr.client_app:differential_privacy_app"
+                print(f"🔐 Using Differential Privacy components for strategy: {strategy}")
             else:
                 serverapp_component = "adni_flwr.server_app:app"
                 clientapp_component = "adni_flwr.client_app:app"
