@@ -1,6 +1,6 @@
 data:
-  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
-  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_47images.csv"
+  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_2clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_423images.csv"
+  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_2clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_94images.csv"
   img_dir: "data/ADNI/3T_bl_org_P1_20250603/3T_bl_org_MRI_1_NIfTI_removedDup_step3_skull_stripping"
   dataset_type: "normal"  # Options: "smartcache", "cache", "normal"
   classification_mode: "CN_AD"  # Options: "CN_MCI_AD" (3 classes), "CN_AD" (2 classes, where MCI is treated as CN)
@@ -28,7 +28,7 @@ training:
   learning_rate: 0.0005
   weight_decay: 0.01  # 1e-2
   num_workers: 2
-  seed: 101
+  seed: 1
   output_dir: "outputs"
   mixed_precision: false
   visualize: false
@@ -45,17 +45,19 @@ wandb:
   project: "fl-adni-classification"
   entity: "tin-hoang"
   tags: ["federated-learning", "differential_privacy", "rosanna"]
-  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-dp-seed101"
-  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-dp-seed101"
+  notes: "bs2"
+  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-2clients-dp-seed01"
 
 # FL-specific settings
 fl:
-  client_id: 2
+  client_id: 1
   local_epochs: 1  # Number of local epochs per round
   num_rounds: 100  # Number of FL rounds to perform (to setup LR scheduler)
   evaluate_frequency: 5  # Evaluate every 10 rounds (can be overridden by server config)
-  strategy: "differential_privacy"
+  strategy: "differential_privacy"           # FL aggregation strategy (options: "fedavg", "fedprox")
 
   # Differential Privacy specific parameters
-  dp_noise_multiplier: 0.1
-  dp_clipping_norm: 1.0
+  dp_noise_multiplier: 0.1  # Reduced from 1.0 to 0.1 for better convergence
+  dp_clipping_norm: 1.0     # Keep clipping norm at 1.0
+  # epsilon: 1.0              # Privacy budget parameter
+  # delta: 1e-5               # Privacy delta parameter

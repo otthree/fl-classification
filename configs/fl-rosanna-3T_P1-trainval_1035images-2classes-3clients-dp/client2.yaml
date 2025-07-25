@@ -25,7 +25,7 @@ model:
 
 training:
   batch_size: 2
-  learning_rate: 0.0001
+  learning_rate: 0.0005
   weight_decay: 0.01  # 1e-2
   num_workers: 2
   seed: 1
@@ -57,5 +57,7 @@ fl:
   strategy: "differential_privacy"
 
   # Differential Privacy specific parameters
-  dp_noise_multiplier: 0.1
-  dp_dropout_rate: 0.0
+  dp_noise_multiplier: 0.1  # Reduced from 1.0 to 0.1 for better convergence
+  dp_clipping_norm: 1.0     # Keep clipping norm at 1.0
+  # epsilon: 1.0              # Privacy budget parameter
+  # delta: 1e-5               # Privacy delta parameter

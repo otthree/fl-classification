@@ -1,6 +1,6 @@
 data:
-  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_213images.csv"
-  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_47images.csv"
+  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_train_213images.csv"
+  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed101/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_1_val_47images.csv"
   img_dir: "data/ADNI/3T_bl_org_P1_20250603/3T_bl_org_MRI_1_NIfTI_removedDup_step3_skull_stripping"
   dataset_type: "normal"  # Options: "smartcache", "cache", "normal"
   classification_mode: "CN_AD"  # Options: "CN_MCI_AD" (3 classes), "CN_AD" (2 classes, where MCI is treated as CN)
@@ -25,10 +25,10 @@ model:
 
 training:
   batch_size: 2
-  learning_rate: 0.0001
+  learning_rate: 0.0005
   weight_decay: 0.01  # 1e-2
   num_workers: 2
-  seed: 1
+  seed: 101
   output_dir: "outputs"
   mixed_precision: false
   visualize: false
@@ -45,8 +45,8 @@ wandb:
   project: "fl-adni-classification"
   entity: "tin-hoang"
   tags: ["federated-learning", "differential_privacy", "rosanna"]
-  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-dp-seed01"
-  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-dp-seed01"
+  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-dp-seed101"
+  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-dp-seed101"
 
 # FL-specific settings
 fl:
@@ -58,4 +58,4 @@ fl:
 
   # Differential Privacy specific parameters
   dp_noise_multiplier: 0.1
-  dp_dropout_rate: 0.0
+  dp_clipping_norm: 1.0
