@@ -7,6 +7,7 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![MONAI](https://img.shields.io/badge/MONAI-Medical%20AI-purple.svg)](https://monai.io/)
+[![Tests](https://github.com/Tin-Hoang/fl-adni-classification/workflows/Tests/badge.svg)](https://github.com/Tin-Hoang/fl-adni-classification/actions/workflows/test.yml)
 [![GitHub stars](https://img.shields.io/github/stars/Tin-Hoang/fl-adni-classification?style=social)](https://github.com/Tin-Hoang/fl-adni-classification/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Tin-Hoang/fl-adni-classification?style=social)](https://github.com/Tin-Hoang/fl-adni-classification/network/members)
 
