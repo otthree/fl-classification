@@ -11,7 +11,7 @@ This package provides:
 """
 
 from .config import Config, FLConfig
-from .datasets import DatasetFactory
+from .datasets import create_adni_dataset
 from .models import ModelFactory
 from .utils import FocalLoss, create_loss_function
 
@@ -20,7 +20,7 @@ __version__ = "1.0.0"
 __all__ = [
     "Config",
     "FLConfig",
-    "DatasetFactory",
+    "create_adni_dataset",
     "ModelFactory",
     "FocalLoss",
     "create_loss_function",
