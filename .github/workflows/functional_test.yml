@@ -1,4 +1,4 @@
-name: Tests
+name: Functional Tests
 
 on:
   push:
@@ -33,14 +33,20 @@ jobs:
       continue-on-error: true
 
     - name: Run import tests
+      env:
+        PYTORCH_DISABLE_DOCSTRING_CHECK: 1
       run: |
         uv run pytest tests/test_imports.py -v --tb=short
 
     - name: Run config tests
+      env:
+        PYTORCH_DISABLE_DOCSTRING_CHECK: 1
       run: |
         uv run pytest tests/config/ -v --tb=short
 
     - name: Generate coverage report
       if: success()
+      env:
+        PYTORCH_DISABLE_DOCSTRING_CHECK: 1
       run: |
         uv run pytest tests/config/ tests/test_imports.py --cov=adni_classification.config --cov=adni_classification --cov=adni_flwr --cov-report=term-missing --tb=short

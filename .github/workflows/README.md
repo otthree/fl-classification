@@ -2,7 +2,7 @@
 
 This directory contains GitHub Actions workflows for automated testing and quality assurance.
 
-## `test.yml` - Test Workflow
+## `functional_test.yml` - Functional Test Workflow
 
 ### Overview
 Lightweight CI workflow designed for efficient use of GitHub Actions free quota. Uses `uv` for ultra-fast Python package management.
@@ -37,19 +37,3 @@ uv run ruff check adni_classification tests --select E,W,F --ignore E501
 # Generate coverage report
 uv run pytest tests/test_imports.py tests/config/ --cov=adni_classification --cov=adni_flwr --cov-report=term-missing
 ```
-
-### Badge Status
-The workflow status is displayed in the README.md with:
-```markdown
-[![Tests](https://github.com/Tin-Hoang/fl-adni-classification/workflows/Tests/badge.svg)](https://github.com/Tin-Hoang/fl-adni-classification/actions/workflows/test.yml)
-```
-
-### Expected Runtime
-- **Total**: ~1.5-2 minutes per run
-- **Setup**: ~30 seconds
-- **Dependencies**: ~20 seconds (with uv sync)
-- **Linting**: ~10 seconds
-- **Tests**: ~30 seconds
-- **Coverage**: ~20 seconds
-
-This efficient design maximizes value while minimizing GitHub Actions quota usage.
