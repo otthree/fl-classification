@@ -5,21 +5,22 @@ This directory contains GitHub Actions workflows for automated testing and quali
 ## `test.yml` - Test Workflow
 
 ### Overview
-Lightweight CI workflow designed for efficient use of GitHub Actions free quota.
+Lightweight CI workflow designed for efficient use of GitHub Actions free quota. Uses `uv` for ultra-fast Python package management.
 
 ### Triggers
 - Push to `main` or `dev` branches
 - Pull requests targeting `main` or `dev` branches
 
 ### Jobs
-1. **Setup** (Python 3.11 + Ubuntu latest)
-2. **Linting** (Fast ruff check with basic rules)
-3. **Testing** (Config module tests only)
-4. **Coverage** (If tests pass)
+1. **Setup** (Python 3.11 + Ubuntu latest + uv installation)
+2. **Dependencies** (uv sync --dev for ultra-fast installation)
+3. **Linting** (Fast ruff check with basic rules)
+4. **Testing** (Import tests + Config module tests)
+5. **Coverage** (If tests pass)
 
 ### Quota Optimization
 - **Single environment**: No matrix builds
-- **Pip caching**: Faster dependency installation
+- **UV package manager**: Ultra-fast dependency installation (faster than pip)
 - **Focused scope**: Only tests configuration module
 - **Smart triggers**: Avoids running on feature branch commits
 - **Continue-on-error**: Linting failures don't stop tests
@@ -28,13 +29,13 @@ Lightweight CI workflow designed for efficient use of GitHub Actions free quota.
 Before pushing, run tests locally:
 ```bash
 # Run the same tests as CI
-pytest tests/test_imports.py tests/config/ -v
+uv run pytest tests/test_imports.py tests/config/ -v
 
 # Check linting
-ruff check adni_classification tests --select E,W,F --ignore E501
+uv run ruff check adni_classification tests --select E,W,F --ignore E501
 
 # Generate coverage report
-pytest tests/test_imports.py tests/config/ --cov=adni_classification --cov=adni_flwr --cov-report=term-missing
+uv run pytest tests/test_imports.py tests/config/ --cov=adni_classification --cov=adni_flwr --cov-report=term-missing
 ```
 
 ### Badge Status
@@ -44,9 +45,9 @@ The workflow status is displayed in the README.md with:
 ```
 
 ### Expected Runtime
-- **Total**: ~2-3 minutes per run
+- **Total**: ~1.5-2 minutes per run
 - **Setup**: ~30 seconds
-- **Dependencies**: ~60 seconds (with cache: ~10 seconds)
+- **Dependencies**: ~20 seconds (with uv sync)
 - **Linting**: ~10 seconds
 - **Tests**: ~30 seconds
 - **Coverage**: ~20 seconds

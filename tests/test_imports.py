@@ -3,6 +3,7 @@
 import importlib
 import sys
 from unittest.mock import patch
+
 import pytest
 
 
@@ -40,12 +41,17 @@ class TestAdniClassificationImports:
         try:
             from adni_classification.config import Config, FLConfig
             from adni_classification.config.config import (
-                DataConfig, ModelConfig, TrainingConfig,
-                CheckpointConfig, WandbConfig
+                CheckpointConfig,
+                DataConfig,
+                ModelConfig,
+                TrainingConfig,
+                WandbConfig,
             )
             from adni_classification.config.fl_config import (
-                SSHConfig, ClientMachineConfig, ServerMachineConfig,
-                MultiMachineConfig
+                ClientMachineConfig,
+                MultiMachineConfig,
+                ServerMachineConfig,
+                SSHConfig,
             )
 
             # Verify classes can be instantiated (basic smoke test)
@@ -63,12 +69,14 @@ class TestAdniClassificationImports:
     def test_datasets_module_imports(self):
         """Test datasets module imports."""
         try:
-            from adni_classification.datasets import create_adni_dataset
             from adni_classification.datasets import (
-                ADNIDataset, ADNICacheDataset,
-                ADNIPersistentDataset, ADNISmartCacheDataset
+                ADNICacheDataset,
+                ADNIDataset,
+                ADNIPersistentDataset,
+                ADNISmartCacheDataset,
+                create_adni_dataset,
+                get_transforms,
             )
-            from adni_classification.datasets import get_transforms
 
             # Verify functions are callable
             assert callable(create_adni_dataset)
@@ -86,10 +94,7 @@ class TestAdniClassificationImports:
     def test_models_module_imports(self):
         """Test models module imports."""
         try:
-            from adni_classification.models import ModelFactory
-            from adni_classification.models import (
-                BaseModel, ResNet3D, SecureFedCNN, RosannaCNN
-            )
+            from adni_classification.models import BaseModel, ModelFactory, ResNet3D, RosannaCNN, SecureFedCNN
 
             # Verify ModelFactory and all model classes exist
             model_classes = [ModelFactory, BaseModel, ResNet3D, SecureFedCNN, RosannaCNN]
@@ -112,7 +117,6 @@ class TestAdniClassificationImports:
 
     def test_submodule_structure(self):
         """Test that all expected submodules exist."""
-        import adni_classification
 
         expected_submodules = [
             'adni_classification.config',
@@ -143,20 +147,22 @@ class TestAdniFlwrImports:
         """Test strategies module imports."""
         try:
             from adni_flwr.strategies import (
-                FLStrategyBase, ClientStrategyBase, StrategyAwareClient
+                ClientStrategyBase,
+                DifferentialPrivacyClient,
+                DifferentialPrivacyStrategy,
+                FedAvgClient,
+                FedAvgStrategy,
+                FedProxClient,
+                FedProxStrategy,
+                FLStrategyBase,
+                SecAggPlusClient,
+                SecAggPlusFlowerClient,
+                SecAggPlusStrategy,
+                StrategyAwareClient,
+                StrategyConfigValidator,
+                StrategyFactory,
+                create_secagg_plus_client_fn,
             )
-            from adni_flwr.strategies import (
-                FedAvgStrategy, FedAvgClient,
-                FedProxStrategy, FedProxClient
-            )
-            from adni_flwr.strategies import (
-                DifferentialPrivacyStrategy, DifferentialPrivacyClient
-            )
-            from adni_flwr.strategies import (
-                SecAggPlusStrategy, SecAggPlusClient,
-                SecAggPlusFlowerClient, create_secagg_plus_client_fn
-            )
-            from adni_flwr.strategies import StrategyFactory, StrategyConfigValidator
 
             # Verify all strategy classes exist
             strategy_classes = [
@@ -197,7 +203,7 @@ class TestAdniFlwrImports:
     def test_core_modules_import(self):
         """Test core FL application modules."""
         try:
-            from adni_flwr import client_app, server_app, task, server_fn
+            from adni_flwr import client_app, server_app, server_fn, task
 
             # These should be modules/files, not necessarily have specific attributes
             # Just verify they can be imported without errors

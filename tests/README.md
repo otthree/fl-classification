@@ -84,6 +84,10 @@ The `conftest.py` file provides shared fixtures for all tests:
 Make sure you have the development dependencies installed:
 
 ```bash
+# Using uv (recommended - faster)
+uv sync --dev
+
+# Or using pip (alternative)
 pip install -e ".[dev]"
 ```
 
@@ -94,6 +98,10 @@ This will install pytest, pytest-cov, and other testing dependencies.
 Run all tests in the project:
 
 ```bash
+# Using uv (recommended)
+uv run pytest
+
+# Or using pytest directly
 pytest
 ```
 
@@ -102,18 +110,32 @@ pytest
 Run only import tests:
 
 ```bash
+# Using uv (recommended)
+uv run pytest tests/test_imports.py
+
+# Or using pytest directly
 pytest tests/test_imports.py
 ```
 
 Run only configuration tests:
 
 ```bash
+# Using uv (recommended)
+uv run pytest tests/config/
+
+# Or using pytest directly
 pytest tests/config/
 ```
 
 Run tests for a specific module:
 
 ```bash
+# Using uv (recommended)
+uv run pytest tests/config/test_config.py
+uv run pytest tests/config/test_fl_config.py
+uv run pytest tests/test_imports.py
+
+# Or using pytest directly
 pytest tests/config/test_config.py
 pytest tests/config/test_fl_config.py
 pytest tests/test_imports.py
@@ -124,6 +146,10 @@ pytest tests/test_imports.py
 Generate a coverage report:
 
 ```bash
+# Using uv (recommended)
+uv run pytest --cov=adni_classification --cov-report=html
+
+# Or using pytest directly
 pytest --cov=adni_classification --cov-report=html
 ```
 
@@ -148,6 +174,10 @@ pytest tests/config/test_config.py::TestConfig::test_config_creation_from_dict
 Run tests with verbose output to see individual test results:
 
 ```bash
+# Using uv (recommended)
+uv run pytest -v
+
+# Or using pytest directly
 pytest -v
 ```
 
