@@ -2,14 +2,13 @@
 
 import os
 from unittest.mock import patch
-import pytest
 
 from adni_classification.config.fl_config import (
-    FLConfig,
-    SSHConfig,
     ClientMachineConfig,
-    ServerMachineConfig,
+    FLConfig,
     MultiMachineConfig,
+    ServerMachineConfig,
+    SSHConfig,
 )
 
 

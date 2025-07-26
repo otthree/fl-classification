@@ -1,18 +1,17 @@
 """Unit tests for adni_classification.config.config module."""
 
 import os
-import tempfile
-from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 import yaml
 
 from adni_classification.config.config import (
+    CheckpointConfig,
     Config,
     DataConfig,
     ModelConfig,
     TrainingConfig,
-    CheckpointConfig,
     WandbConfig,
 )
 

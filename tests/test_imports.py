@@ -49,10 +49,13 @@ class TestAdniClassificationImports:
             )
 
             # Verify classes can be instantiated (basic smoke test)
-            assert Config is not None
-            assert FLConfig is not None
-            assert DataConfig is not None
-            assert ModelConfig is not None
+            config_classes = [Config, FLConfig, DataConfig, ModelConfig,
+                            TrainingConfig, CheckpointConfig, WandbConfig]
+            fl_config_classes = [SSHConfig, ClientMachineConfig,
+                               ServerMachineConfig, MultiMachineConfig]
+
+            for cls in config_classes + fl_config_classes:
+                assert cls is not None, f"Class {cls.__name__} should not be None"
 
         except ImportError as e:
             pytest.fail(f"Failed to import config modules: {e}")
@@ -67,8 +70,15 @@ class TestAdniClassificationImports:
             )
             from adni_classification.datasets import get_transforms
 
+            # Verify functions are callable
             assert callable(create_adni_dataset)
             assert callable(get_transforms)
+
+            # Verify dataset classes exist
+            dataset_classes = [ADNIDataset, ADNICacheDataset,
+                             ADNIPersistentDataset, ADNISmartCacheDataset]
+            for cls in dataset_classes:
+                assert cls is not None, f"Dataset class {cls.__name__} should not be None"
 
         except ImportError as e:
             pytest.fail(f"Failed to import datasets modules: {e}")
@@ -81,8 +91,10 @@ class TestAdniClassificationImports:
                 BaseModel, ResNet3D, SecureFedCNN, RosannaCNN
             )
 
-            assert ModelFactory is not None
-            assert BaseModel is not None
+            # Verify ModelFactory and all model classes exist
+            model_classes = [ModelFactory, BaseModel, ResNet3D, SecureFedCNN, RosannaCNN]
+            for cls in model_classes:
+                assert cls is not None, f"Model class {cls.__name__} should not be None"
 
         except ImportError as e:
             pytest.fail(f"Failed to import models modules: {e}")
@@ -146,11 +158,20 @@ class TestAdniFlwrImports:
             )
             from adni_flwr.strategies import StrategyFactory, StrategyConfigValidator
 
-            # Verify classes exist
-            assert FLStrategyBase is not None
-            assert FedAvgStrategy is not None
+            # Verify all strategy classes exist
+            strategy_classes = [
+                FLStrategyBase, ClientStrategyBase, StrategyAwareClient,
+                FedAvgStrategy, FedAvgClient, FedProxStrategy, FedProxClient,
+                DifferentialPrivacyStrategy, DifferentialPrivacyClient,
+                SecAggPlusStrategy, SecAggPlusClient, SecAggPlusFlowerClient,
+                StrategyFactory, StrategyConfigValidator
+            ]
+
+            for cls in strategy_classes:
+                assert cls is not None, f"Strategy class {cls.__name__} should not be None"
+
+            # Verify callable functions
             assert callable(create_secagg_plus_client_fn)
-            assert StrategyFactory is not None
 
         except ImportError as e:
             pytest.fail(f"Failed to import strategies modules: {e}")
@@ -193,10 +214,14 @@ class TestAdniFlwrImports:
         try:
             # Import the utils module (even if it's empty)
             import adni_flwr.utils
+            assert adni_flwr.utils is not None
 
             # Try to import specific utils if they exist
             try:
                 from adni_flwr.utils import logging_config, memory_monitor
+                # Verify these modules exist if imported successfully
+                assert logging_config is not None
+                assert memory_monitor is not None
             except ImportError:
                 # Utils might not export these, that's ok for now
                 pass
@@ -257,7 +282,7 @@ class TestImportErrorHandling:
         # This test verifies that our test structure itself is robust
         with patch.dict(sys.modules, {'nonexistent_module': None}):
             try:
-                import nonexistent_module  # This should fail
+                import nonexistent_module  # This should fail  # noqa: F401
                 pytest.fail("Expected ImportError was not raised")
             except ImportError:
                 pass  # Expected behavior
