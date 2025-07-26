@@ -8,6 +8,7 @@ This directory contains comprehensive unit tests for the ADNI classification pro
 tests/
 ├── __init__.py                 # Main tests package
 ├── conftest.py                 # Shared pytest fixtures
+├── test_imports.py             # Package import and structure tests
 ├── README.md                   # This documentation
 └── config/                     # Configuration tests
     ├── __init__.py            # Config tests subpackage
@@ -16,6 +17,25 @@ tests/
 ```
 
 ## Test Coverage
+
+### Import Tests (`test_imports.py`)
+Tests for package structure and import validation:
+
+- **TestAdniClassificationImports**: Tests for `adni_classification` package
+  - Main package import and version validation
+  - Export validation against `__all__` declarations
+  - Submodule imports (config, datasets, models, utils)
+  - Individual class and function imports
+- **TestAdniFlwrImports**: Tests for `adni_flwr` package
+  - Federated learning strategies import validation
+  - Core FL application modules (client_app, server_app, task)
+  - Strategy factory and configuration validation
+- **TestCrossPackageCompatibility**: Integration between packages
+  - Simultaneous import of both packages
+  - Configuration integration between packages
+- **TestImportErrorHandling**: Error handling and robustness
+  - Graceful handling of missing dependencies
+  - Package structure validation
 
 ### Configuration Module Tests (`tests/config/`)
 
@@ -79,6 +99,12 @@ pytest
 
 ### Running Specific Test Modules
 
+Run only import tests:
+
+```bash
+pytest tests/test_imports.py
+```
+
 Run only configuration tests:
 
 ```bash
@@ -90,6 +116,7 @@ Run tests for a specific module:
 ```bash
 pytest tests/config/test_config.py
 pytest tests/config/test_fl_config.py
+pytest tests/test_imports.py
 ```
 
 ### Running with Coverage
