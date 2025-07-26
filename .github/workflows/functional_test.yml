@@ -33,14 +33,10 @@ jobs:
       continue-on-error: true
 
     - name: Run import tests
-      env:
-        PYTORCH_DISABLE_DOCSTRING_CHECK: 1
       run: |
         uv run pytest tests/test_imports.py -v --tb=short
 
     - name: Run config tests
-      env:
-        PYTORCH_DISABLE_DOCSTRING_CHECK: 1
       run: |
         uv run pytest tests/config/ -v --tb=short
 
