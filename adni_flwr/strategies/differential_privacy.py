@@ -31,8 +31,6 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         config: Config,
         model: nn.Module,
         wandb_logger: Optional[Any] = None,
-        noise_multiplier: float = 0.1,
-        clipping_norm: float = 1.0,
         **kwargs,
     ):
         """Initialize Differential Privacy strategy.
@@ -41,14 +39,9 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
             config: Configuration object
             model: PyTorch model
             wandb_logger: Wandb logger instance
-            noise_multiplier: Multiplier for Gaussian noise addition (DP parameter)
-            clipping_norm: Gradient clipping norm for DP-SGD
             **kwargs: Additional DP parameters
         """
         super().__init__(config, model, wandb_logger, **kwargs)
-
-        self.noise_multiplier = noise_multiplier
-        self.clipping_norm = clipping_norm
 
         # Extract specific parameters for FedAvg
         fedavg_params = {
@@ -75,7 +68,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         self._load_server_validation_data()
 
         logger.info("DifferentialPrivacyStrategy initialized with LocalDpMod support")
-        logger.info(f"DP parameters: noise_multiplier={noise_multiplier}, clipping_norm={clipping_norm}")
+        logger.info("DP parameters are configured via LocalDpMod in client_app.py")
 
     def get_strategy_name(self) -> str:
         """Return the strategy name."""
@@ -84,8 +77,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
     def get_strategy_params(self) -> Dict[str, Any]:
         """Return strategy-specific parameters."""
         return {
-            "noise_multiplier": self.noise_multiplier,
-            "clipping_norm": self.clipping_norm,
+            "uses_localdpmod": True,
             "fraction_fit": self.fedavg_strategy.fraction_fit,
             "fraction_evaluate": self.fedavg_strategy.fraction_evaluate,
             "min_fit_clients": self.fedavg_strategy.min_fit_clients,
@@ -100,8 +92,6 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
             Dictionary of DP specific metrics for logging.
         """
         return {
-            "noise_multiplier": self.noise_multiplier,
-            "clipping_norm": self.clipping_norm,
             "uses_localdpmod": True,
         }
 
@@ -141,8 +131,6 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         dp_metrics = {
             "num_clients": len(results),
             "num_failures": len(failures),
-            "noise_multiplier": self.noise_multiplier,
-            "clipping_norm": self.clipping_norm,
             "uses_localdpmod": True,
         }
         metrics.update(dp_metrics)
@@ -152,10 +140,7 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
             self.wandb_logger.log_metrics(metrics, prefix="server", step=server_round)
 
         # Print server model's current metrics
-        print(
-            f"Server model metrics after round {server_round} "
-            f"(LocalDpMod DP noise={self.noise_multiplier}, clipping={self.clipping_norm}):"
-        )
+        print(f"Server model metrics after round {server_round} (using LocalDpMod for DP):")
         for metric_name, metric_value in metrics.items():
             print(f"  {metric_name}: {metric_value}")
 
@@ -185,14 +170,12 @@ class DifferentialPrivacyStrategy(FLStrategyBase):
         # Get the base configuration from the parent class
         client_instructions = self.fedavg_strategy.configure_fit(server_round, parameters, client_manager)
 
-        # Add server_round and DP parameters to the config for each client
+        # Add server_round and DP configuration to the config for each client
         updated_instructions = []
         for client_proxy, fit_ins in client_instructions:
-            # Add server_round and DP parameters to the existing config
+            # Add server_round and DP information to the existing config
             config = fit_ins.config.copy() if fit_ins.config else {}
             config["server_round"] = server_round
-            config["noise_multiplier"] = self.noise_multiplier
-            config["clipping_norm"] = self.clipping_norm
             config["uses_localdpmod"] = True
 
             # Create new FitIns with updated config
@@ -248,8 +231,6 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         criterion: nn.Module,
         device: torch.device,
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
-        noise_multiplier: float = 0.1,
-        clipping_norm: float = 1.0,
         **kwargs,
     ):
         """Initialize Differential Privacy client strategy.
@@ -261,14 +242,9 @@ class DifferentialPrivacyClient(ClientStrategyBase):
             criterion: Loss function
             device: Device to use for computation
             scheduler: Learning rate scheduler (optional)
-            noise_multiplier: Multiplier for Gaussian noise addition (DP parameter)
-            clipping_norm: L2 norm threshold for gradient clipping
             **kwargs: Additional strategy parameters
         """
         super().__init__(config, model, optimizer, criterion, device, scheduler, **kwargs)
-
-        self.noise_multiplier = noise_multiplier
-        self.clipping_norm = clipping_norm
 
         # Client ID must be explicitly set - FAIL FAST if not specified
         if not hasattr(config.fl, "client_id") or config.fl.client_id is None:
@@ -288,7 +264,7 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         self.scaler = torch.cuda.amp.GradScaler() if self.mixed_precision else None
 
         logger.info("DP Client initialized with LocalDpMod support")
-        logger.info(f"DP parameters: noise_multiplier={noise_multiplier}, clipping_norm={clipping_norm}")
+        logger.info("DP parameters are configured via LocalDpMod in client_app.py")
         logger.info("Note: LocalDpMod should be added to ClientApp's mods list for DP functionality")
 
     def get_strategy_name(self) -> str:
@@ -317,18 +293,12 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         # Reset optimizer state
         self.optimizer.zero_grad()
 
-        # Update DP parameters if specified in round config
-        if "noise_multiplier" in round_config:
-            self.noise_multiplier = round_config["noise_multiplier"]
-        if "clipping_norm" in round_config:
-            self.clipping_norm = round_config["clipping_norm"]
-
         logger.info(f"Client prepared for round {self.current_round} with LocalDpMod DP parameters")
 
     def train_epoch(self, train_loader: DataLoader, epoch: int, total_epochs: int, **kwargs) -> Tuple[float, float]:
-        """Train the model for one epoch with gradient clipping for DP-SGD.
+        """Train the model for one epoch with differential privacy via LocalDpMod.
 
-        Note: LocalDpMod handles the differential privacy noise addition to parameters.
+        Note: LocalDpMod handles all differential privacy operations including gradient clipping and noise addition.
 
         Args:
             train_loader: Training data loader
@@ -343,14 +313,12 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         total_loss = 0.0
         total_correct = 0
         total_samples = 0
-        total_clipping_norm = 0.0
-        num_batches = 0
 
         for batch_idx, batch in enumerate(train_loader):
             images = batch["image"].to(self.device)
             labels = batch["label"].to(self.device)
 
-            # Mixed precision training with gradient clipping
+            # Mixed precision training
             if self.mixed_precision and self.scaler is not None:
                 with torch.cuda.amp.autocast():
                     outputs = self.model(images)
@@ -360,14 +328,10 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                 self.scaler.scale(loss).backward()
 
                 if (batch_idx + 1) % self.gradient_accumulation_steps == 0 or batch_idx == len(train_loader) - 1:
-                    # Unscale gradients before clipping
+                    # Unscale gradients before optimizer step
                     self.scaler.unscale_(self.optimizer)
 
-                    # Apply gradient clipping for DP-SGD
-                    clipping_norm = self.clip_gradients()
-                    total_clipping_norm += clipping_norm
-                    num_batches += 1
-
+                    # Note: All DP operations are handled by LocalDpMod
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.optimizer.zero_grad()
@@ -378,11 +342,7 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                 loss.backward()
 
                 if (batch_idx + 1) % self.gradient_accumulation_steps == 0 or batch_idx == len(train_loader) - 1:
-                    # Apply gradient clipping for DP-SGD
-                    clipping_norm = self.clip_gradients()
-                    total_clipping_norm += clipping_norm
-                    num_batches += 1
-
+                    # Note: All DP operations are handled by LocalDpMod
                     self.optimizer.step()
                     self.optimizer.zero_grad()
 
@@ -394,10 +354,9 @@ class DifferentialPrivacyClient(ClientStrategyBase):
 
         avg_loss = total_loss / len(train_loader)
         avg_accuracy = 100.0 * total_correct / total_samples if total_samples > 0 else 0.0
-        avg_clipping_norm = total_clipping_norm / max(num_batches, 1)
 
-        # Log DP-specific metrics
-        logger.info(f"DP Training - Avg clipping norm: {avg_clipping_norm:.6f}, Target: {self.clipping_norm}")
+        # Note: DP operations (including gradient clipping) are handled by LocalDpMod
+        logger.info("DP Training completed - differential privacy handled by LocalDpMod")
 
         # Step the scheduler only once per FL round (after the last local epoch)
         if self.scheduler is not None and epoch == total_epochs - 1:  # Only on last local epoch
@@ -426,8 +385,6 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         """
         # Return DP-specific metrics for WandB tracking
         return {
-            "noise_multiplier": self.noise_multiplier,
-            "clipping_norm": self.clipping_norm,
             "uses_localdpmod": True,
         }
 
@@ -439,7 +396,6 @@ class DifferentialPrivacyClient(ClientStrategyBase):
         """
         if self.clipping_norm <= 0.0:
             return 0.0
-
         # Compute total gradient norm
         total_norm = 0.0
         for param in self.model.parameters():

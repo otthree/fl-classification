@@ -143,8 +143,9 @@ class StrategyFactory:
             params.setdefault("mu", getattr(config.fl, "fedprox_mu", 0.01))
 
         elif strategy_name == "differential_privacy":
-            params.setdefault("noise_multiplier", getattr(config.fl, "dp_noise_multiplier", 0.1))
-            params.setdefault("clipping_norm", getattr(config.fl, "dp_clipping_norm", 1.0))
+            # DP parameters are now handled by LocalDpMod in client_app.py
+            # No additional parameters needed for the strategy itself
+            pass
 
         elif strategy_name in ["secagg+", "secaggplus"]:
             # SecAgg+ parameters
@@ -238,7 +239,7 @@ class StrategyConfigValidator:
 
     @staticmethod
     def validate_differential_privacy_config(config: Config) -> bool:
-        """Validate Differential Privacy configuration.
+        """Validate Differential Privacy configuration for LocalDpMod.
 
         Args:
             config: Configuration object
@@ -249,16 +250,32 @@ class StrategyConfigValidator:
         Raises:
             ValueError: If configuration is invalid
         """
-        noise_multiplier = getattr(config.fl, "dp_noise_multiplier", 0.1)
+        # Validate LocalDpMod parameters
         clipping_norm = getattr(config.fl, "dp_clipping_norm", 1.0)
+        sensitivity = getattr(config.fl, "dp_sensitivity", clipping_norm)  # Fall back to clipping_norm if not specified
+        epsilon = getattr(config.fl, "dp_epsilon", 1.0)
+        delta = getattr(config.fl, "dp_delta", 1e-5)
 
-        if not isinstance(noise_multiplier, (int, float)) or noise_multiplier < 0:
-            raise ValueError(
-                f"Differential Privacy noise_multiplier must be a non-negative number, got: {noise_multiplier}"
-            )
+        # Convert values to float if they're strings (for robust YAML parsing)
+        try:
+            clipping_norm = float(clipping_norm)
+            sensitivity = float(sensitivity)
+            epsilon = float(epsilon)
+            delta = float(delta)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Differential Privacy parameters must be numeric. Error: {e}") from e
 
-        if not isinstance(clipping_norm, (int, float)) or clipping_norm <= 0:
+        if clipping_norm <= 0:
             raise ValueError(f"Differential Privacy clipping_norm must be a positive number, got: {clipping_norm}")
+
+        if sensitivity <= 0:
+            raise ValueError(f"Differential Privacy sensitivity must be a positive number, got: {sensitivity}")
+
+        if epsilon <= 0:
+            raise ValueError(f"Differential Privacy epsilon must be a positive number, got: {epsilon}")
+
+        if delta <= 0 or delta >= 1:
+            raise ValueError(f"Differential Privacy delta must be between 0 and 1 (exclusive), got: {delta}")
 
         return True
 
