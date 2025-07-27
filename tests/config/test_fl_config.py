@@ -304,9 +304,10 @@ class TestFLConfig:
         assert config.client_config_files is None
         assert config.evaluate_frequency == 1
         assert config.fedprox_mu == 0.01
-        assert config.dp_noise_multiplier == 0.1
-        assert config.dp_dropout_rate == 0.0
         assert config.dp_clipping_norm == 1.0
+        assert config.dp_sensitivity == 1.0
+        assert config.dp_epsilon == 1.0
+        assert config.dp_delta == 1e-5
         assert config.secagg_num_shares == 3
         assert config.secagg_reconstruction_threshold == 3
         assert config.secagg_max_weight == 16777216
@@ -332,9 +333,10 @@ class TestFLConfig:
             client_config_files=["client1.yaml", "client2.yaml"],
             evaluate_frequency=2,
             fedprox_mu=0.05,
-            dp_noise_multiplier=0.2,
-            dp_dropout_rate=0.1,
             dp_clipping_norm=2.0,
+            dp_sensitivity=2.0,
+            dp_epsilon=2.0,
+            dp_delta=2e-5,
             secagg_num_shares=5,
             secagg_reconstruction_threshold=4,
             secagg_max_weight=32768,
@@ -356,9 +358,10 @@ class TestFLConfig:
         assert config.client_config_files == ["client1.yaml", "client2.yaml"]
         assert config.evaluate_frequency == 2
         assert config.fedprox_mu == 0.05
-        assert config.dp_noise_multiplier == 0.2
-        assert config.dp_dropout_rate == 0.1
         assert config.dp_clipping_norm == 2.0
+        assert config.dp_sensitivity == 2.0
+        assert config.dp_epsilon == 2.0
+        assert config.dp_delta == 2e-5
         assert config.secagg_num_shares == 5
         assert config.secagg_reconstruction_threshold == 4
         assert config.secagg_max_weight == 32768
@@ -372,15 +375,17 @@ class TestFLConfig:
         """Test FLConfig with differential privacy strategy."""
         config = FLConfig(
             strategy="differential_privacy",
-            dp_noise_multiplier=0.5,
-            dp_dropout_rate=0.2,
             dp_clipping_norm=1.5,
+            dp_sensitivity=1.5,
+            dp_epsilon=10.0,
+            dp_delta=1e-4,
         )
 
         assert config.strategy == "differential_privacy"
-        assert config.dp_noise_multiplier == 0.5
-        assert config.dp_dropout_rate == 0.2
         assert config.dp_clipping_norm == 1.5
+        assert config.dp_sensitivity == 1.5
+        assert config.dp_epsilon == 10.0
+        assert config.dp_delta == 1e-4
 
     def test_fl_config_secagg_plus_strategy(self):
         """Test FLConfig with SecAgg+ strategy."""

@@ -257,10 +257,9 @@ class Config:
             "client_config_files": self.fl.client_config_files,
             "evaluate_frequency": self.fl.evaluate_frequency,
             "fedprox_mu": self.fl.fedprox_mu,
-            # Differential Privacy parameters
-            "dp_noise_multiplier": self.fl.dp_noise_multiplier,
-            "dp_dropout_rate": self.fl.dp_dropout_rate,
+            # Differential Privacy parameters (for LocalDpMod)
             "dp_clipping_norm": self.fl.dp_clipping_norm,
+            "dp_sensitivity": self.fl.dp_sensitivity,
             "dp_epsilon": self.fl.dp_epsilon,
             "dp_delta": self.fl.dp_delta,
             # SecAgg+ (real secure aggregation) parameters

@@ -114,10 +114,9 @@ class FLConfig:
     # FedProx specific parameters
     fedprox_mu: float = 0.01
 
-    # Differential Privacy specific parameters
-    dp_noise_multiplier: float = 0.1
-    dp_dropout_rate: float = 0.0
-    dp_clipping_norm: float = 1.0  # Gradient clipping norm for DP-SGD
+    # Differential Privacy specific parameters (for LocalDpMod)
+    dp_clipping_norm: float = 1.0  # Gradient clipping norm for LocalDpMod
+    dp_sensitivity: float = 1.0  # Sensitivity parameter for LocalDpMod (typically equals clipping_norm)
     dp_epsilon: float = 1.0  # Privacy budget parameter for LocalDpMod
     dp_delta: float = 1e-5  # Privacy delta parameter for LocalDpMod
 

@@ -17,21 +17,22 @@ data:
   multiprocessing_context: "spawn"
 
 model:
-  name: "rosanna_cnn"
+  name: "rosanna_cnn_gn"  # Using GroupNorm version for better DP training compatibility
   num_classes: 2
   pretrained_checkpoint: null
   # Pretrained model specific parameters
   freeze_encoder: false  # Set to true for feature extraction only
   dropout: 0.1  # Dropout rate for regularization
   input_channels: 1  # Number of input channels
+  num_groups: 8  # Number of groups for GroupNorm (DP-friendly normalization)
 
 training:
-  batch_size: 2
-  learning_rate: 0.0005
+  batch_size: 16
+  learning_rate: 0.0001
   weight_decay: 0.01
   seed: 1
-  num_workers: 2
-  num_epochs: 2
+  num_workers: 4
+  num_epochs: 1
   output_dir: "outputs"  # Checkpoints will be saved in {output_dir}/checkpoints/
   checkpoint:
     save_frequency: 10
@@ -48,9 +49,11 @@ fl:
   strategy: "differential_privacy"           # FL aggregation strategy (options: "fedavg", "fedprox")
   evaluate_frequency: 5       # Clients will evaluate every 10 rounds instead of every round
 
-  # Differential Privacy specific parameters
-  dp_noise_multiplier: 0.1
-  dp_clipping_norm: 1.0
+  # Optimized Differential Privacy parameters for small dataset
+  dp_clipping_norm: 5.0       # Keep clipping norm at 5.0
+  dp_sensitivity: 5.0
+  dp_epsilon: 50.0             # Privacy budget - conservative but allows convergence
+  dp_delta: 1e-5              # Standard delta value for (ε,δ)-DP
 
   # Multi-machine configuration for distributed FL
   multi_machine:
