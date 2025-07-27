@@ -7,6 +7,7 @@ from adni_classification.models.base_model import BaseModel
 from adni_classification.models.densenet3d import DenseNet3D
 from adni_classification.models.resnet3d import ResNet3D
 from adni_classification.models.rosanna_cnn import RosannaCNN
+from adni_classification.models.rosanna_cnn_gn import RosannaCNNGN
 from adni_classification.models.securefed_cnn import SecureFedCNN
 from adni_classification.models.simple_cnn import Simple3DCNN
 
@@ -21,6 +22,7 @@ class ModelFactory:
         "securefed_cnn": SecureFedCNN,
         "pretrained_cnn": RosannaCNN,
         "rosanna_cnn": RosannaCNN,
+        "rosanna_cnn_gn": RosannaCNNGN,
     }
 
     @classmethod
@@ -82,8 +84,8 @@ class ModelFactory:
             else:
                 print(f"Using provided input_size {kwargs['input_size']} for SecureFedCNN")
 
-        # Handle RosannaCNN specific configurations
-        elif model_name in ["rosanna_cnn", "pretrained_cnn"]:
+        # Handle RosannaCNN and RosannaCNNGN specific configurations
+        elif model_name in ["rosanna_cnn", "pretrained_cnn", "rosanna_cnn_gn"]:
             # Extract data config information if needed
             data_config = None
             if "data" in kwargs:
@@ -110,7 +112,7 @@ class ModelFactory:
                 # Default fallback
                 default_input_size = (73, 96, 96)
                 kwargs["input_size"] = default_input_size
-                print(f"No resize_size found in data config, using default input_size {default_input_size} for RosannaCNN")
+                print(f"No resize_size found in data config, using default input_size {default_input_size} for {model_name}")
 
             # Handle pretrained checkpoint parameter
             if "pretrained_checkpoint" in kwargs:
@@ -122,9 +124,15 @@ class ModelFactory:
                 elif pretrained_checkpoint:
                     print(f"Using pretrained checkpoint from: {pretrained_checkpoint}")
 
+            # For GroupNorm model, set default num_groups if not specified
+            if model_name == "rosanna_cnn_gn" and "num_groups" not in kwargs:
+                kwargs["num_groups"] = 32  # Default to 32 groups
+                print(f"Setting default num_groups=32 for RosannaCNNGN")
+
             # Create the model
-            model = RosannaCNN(**kwargs)
-            print(f"Created RosannaCNN with input_size={kwargs['input_size']}, feature_size={model.feature_size}")
+            model_class = cls._models[model_name]
+            model = model_class(**kwargs)
+            print(f"Created {model_class.__name__} with input_size={kwargs['input_size']}, feature_size={model.feature_size}")
             return model
 
         # For other models, create as usual

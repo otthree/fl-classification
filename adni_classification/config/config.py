@@ -53,6 +53,8 @@ class ModelConfig:
     freeze_encoder: Optional[bool] = None
     dropout: Optional[float] = None
     input_channels: Optional[int] = None
+    # GroupNorm specific parameters (for DP-friendly models)
+    num_groups: Optional[int] = None
 
 
 @dataclass
@@ -258,6 +260,9 @@ class Config:
             # Differential Privacy parameters
             "dp_noise_multiplier": self.fl.dp_noise_multiplier,
             "dp_dropout_rate": self.fl.dp_dropout_rate,
+            "dp_clipping_norm": self.fl.dp_clipping_norm,
+            "dp_epsilon": self.fl.dp_epsilon,
+            "dp_delta": self.fl.dp_delta,
             # SecAgg+ (real secure aggregation) parameters
             "secagg_num_shares": self.fl.secagg_num_shares,
             "secagg_reconstruction_threshold": self.fl.secagg_reconstruction_threshold,
@@ -361,6 +366,7 @@ class Config:
                 "freeze_encoder": self.model.freeze_encoder,
                 "dropout": self.model.dropout,
                 "input_channels": self.model.input_channels,
+                "num_groups": self.model.num_groups,
             },
             "training": {
                 "batch_size": self.training.batch_size,
