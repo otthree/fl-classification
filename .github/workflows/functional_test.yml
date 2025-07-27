@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    name: Functional Tests
 
     steps:
     - uses: actions/checkout@v4
@@ -26,11 +27,6 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --extra dev
-
-    - name: Lint with ruff (fast)
-      run: |
-        uv run ruff check adni_classification tests --select E,W,F --ignore E501
-      continue-on-error: true
 
     - name: Run import tests
       run: |
