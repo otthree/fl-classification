@@ -1,15 +1,18 @@
 # Federated Learning for Privacy-Preserving Alzheimer's Disease Classification on 3D MRI Data
 
+<div align="center">
+
 [![GitHub views](https://komarev.com/ghpvc/?username=Tin-Hoang&repo=fl-adni-classification&color=brightgreen&label=Views)](https://github.com/Tin-Hoang/fl-adni-classification)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-blue.svg)](https://pytorch.org/)
 [![Flower](https://img.shields.io/badge/Flower-FL-yellow.svg)](https://flower.dev/)
-[![License](https://img.shields.io/github/license/Tin-Hoang/fl-adni-classification)](https://github.com/Tin-Hoang/fl-adni-classification/blob/main/LICENSE)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![MONAI](https://img.shields.io/badge/MONAI-Medical%20AI-purple.svg)](https://monai.io/)
 [![Functional Tests](https://github.com/Tin-Hoang/fl-adni-classification/workflows/Functional%20Tests/badge.svg)](https://github.com/Tin-Hoang/fl-adni-classification/actions/workflows/functional_test.yml)
 [![GitHub stars](https://img.shields.io/github/stars/Tin-Hoang/fl-adni-classification?style=social)](https://github.com/Tin-Hoang/fl-adni-classification/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Tin-Hoang/fl-adni-classification?style=social)](https://github.com/Tin-Hoang/fl-adni-classification/network/members)
+
+</div>
 
 ***Abstract:** We present a comprehensive benchmark study evaluating federated learning strategies for privacy-preserving Alzheimer's Disease classification on 3D MRI neuroimaging data from the Alzheimer's Disease Neuroimaging Initiative (ADNI). This study systematically compares the performance of multiple federated optimization algorithms—including Federated Averaging (FedAvg), Federated Proximal (FedProx), secure aggregation protocols (SecAgg, SecAggPlus), and differential privacy strategies—against centralized training baselines across diverse collaboration scenarios. Our experimental design evaluates classification performance using 3D convolutional neural networks under varying federated configurations, ranging from centralized learning to distributed scenarios with 2, 3, and 4 participating clients, each representing different institutional data distributions. We investigate the impact of data heterogeneity, client participation, and differential privacy noise parameters on model convergence and classification accuracy for distinguishing between Alzheimer's Disease (AD), Mild Cognitive Impairment (MCI), and Cognitively Normal (CN) cases. The benchmark encompasses multiple CNN architectures (ResNet3D, DenseNet3D) to assess the robustness of federated learning approaches across different model complexities, while differential privacy provides formal privacy guarantees through calibrated noise injection during model training. Our results demonstrate the trade-offs between privacy preservation and model performance in multi-institutional neuroimaging collaborations, quantifying the privacy-utility frontier achieved through the combination of federated learning and differential privacy techniques. This comprehensive evaluation establishes performance baselines and practical guidelines for implementing privacy-preserving federated learning in collaborative neuroimaging research while maintaining strong privacy guarantees and compliance with healthcare data protection requirements.*
 
