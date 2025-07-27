@@ -13,6 +13,107 @@
 
 ***Abstract:** We present a comprehensive benchmark study evaluating federated learning strategies for privacy-preserving Alzheimer's Disease classification on 3D MRI neuroimaging data from the Alzheimer's Disease Neuroimaging Initiative (ADNI). This study systematically compares the performance of multiple federated optimization algorithms—including Federated Averaging (FedAvg), Federated Proximal (FedProx), secure aggregation protocols (SecAgg, SecAggPlus), and differential privacy strategies—against centralized training baselines across diverse collaboration scenarios. Our experimental design evaluates classification performance using 3D convolutional neural networks under varying federated configurations, ranging from centralized learning to distributed scenarios with 2, 3, and 4 participating clients, each representing different institutional data distributions. We investigate the impact of data heterogeneity, client participation, and differential privacy noise parameters on model convergence and classification accuracy for distinguishing between Alzheimer's Disease (AD), Mild Cognitive Impairment (MCI), and Cognitively Normal (CN) cases. The benchmark encompasses multiple CNN architectures (ResNet3D, DenseNet3D) to assess the robustness of federated learning approaches across different model complexities, while differential privacy provides formal privacy guarantees through calibrated noise injection during model training. Our results demonstrate the trade-offs between privacy preservation and model performance in multi-institutional neuroimaging collaborations, quantifying the privacy-utility frontier achieved through the combination of federated learning and differential privacy techniques. This comprehensive evaluation establishes performance baselines and practical guidelines for implementing privacy-preserving federated learning in collaborative neuroimaging research while maintaining strong privacy guarantees and compliance with healthcare data protection requirements.*
 
+This project supports both centralized and federated learning approaches for Alzheimer's Disease classification.
+
+### Centralized Training
+In centralized training, all MRI data from different institutions is aggregated in a single location for model training.
+
+```mermaid
+flowchart LR
+    subgraph "Centralized Training System"
+        direction TB
+
+        %% Centralized Training Process
+        subgraph TrainingProcess["Central Server"]
+            direction LR
+            A["All MRI Data<br/>(AD, MCI, CN)"] -->|Data Input| B["Central Server"]
+            B -->|Training| C["Model Training<br/>(3D CNN)"]
+            C -->|Output| D["Global Model"]
+            D -->|Prediction| E["Predictions"]
+        end
+
+    end
+
+    %% Styling
+    classDef data fill:#ff9999,stroke:#333,stroke-width:2px,border-radius:10px
+    classDef training fill:#99ff99,stroke:#333,stroke-width:2px,border-radius:10px
+    classDef updates fill:#ffcc66,stroke:#333,stroke-width:2px,border-radius:10px
+    classDef server fill:#9999ff,stroke:#333,stroke-width:2px,border-radius:10px
+
+    class A data
+    class B training
+    class C updates
+    class D,E server
+
+    %% Arrow and layout styling
+    linkStyle default stroke:#666,stroke-width:2px
+    linkStyle 0,1,2,3 stroke:#666,stroke-width:2px,label-fill:#fff
+```
+
+### Federated Learning
+In federated learning, data remains distributed across participating institutions. Each client trains locally and only shares model updates, preserving data privacy.
+
+```mermaid
+flowchart LR
+ subgraph C1["Client 1"]
+        B1["Local Training"]
+        A1["Local MRI Data<br>(Institution 1)"]
+        C1U["Model Updates"]
+  end
+ subgraph C2["Client 2"]
+        B2["Local Training"]
+        A2["Local MRI Data<br>(Institution 2)"]
+        C2U["Model Updates"]
+  end
+ subgraph CentralServer["Central Server"]
+    direction TB
+        AG["Federated Aggregation<br>(FedAvg/SecAgg+)"]
+        FS["Federation Server<br>(Flower Framework)"]
+        GM["Global Model"]
+        MD["Model Distribution"]
+  end
+ subgraph subGraph3["Federated Learning System with 2 Clients"]
+    direction LR
+        C1
+        C2
+        CentralServer
+  end
+    A1 --> B1
+    B1 --> C1U
+    A2 --> B2
+    B2 --> C2U
+    FS --> AG
+    AG --> GM
+    GM --> MD
+    C1U -- Send Updates --> FS
+    C2U -- Send Updates --> FS
+    MD -- Distribute Model --> B1 & B2
+
+     B1:::training
+     A1:::data
+     C1U:::updates
+     B2:::training
+     A2:::data
+     C2U:::updates
+     AG:::server
+     FS:::server
+     GM:::server
+     MD:::server
+    classDef data fill:#ff9999,stroke:#333,stroke-width:2px,border-radius:10px
+    classDef training fill:#99ff99,stroke:#333,stroke-width:2px,border-radius:10px
+    classDef updates fill:#ffcc66,stroke:#333,stroke-width:2px,border-radius:10px
+    classDef server fill:#9999ff,stroke:#333,stroke-width:2px,border-radius:10px
+    classDef subg fill:#e0e0e0,stroke:#333,stroke-width:2px,border-radius:10px
+    linkStyle 0 stroke:#666,stroke-width:2px,label-fill:#fff,fill:none
+    linkStyle 1 stroke:#666,stroke-width:2px,label-fill:#fff,fill:none
+    linkStyle 2 stroke:#666,stroke-width:2px,label-fill:#fff,fill:none
+    linkStyle 3 stroke:#666,stroke-width:2px,label-fill:#fff,fill:none
+
+
+
+```
+
+
 <details>
 <summary>Repo Folder Structure</summary>
 
