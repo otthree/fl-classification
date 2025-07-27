@@ -445,9 +445,7 @@ class TestFLConfig:
 
     def test_fl_config_client_config_files_validation(self):
         """Test FLConfig with client config files."""
-        config = FLConfig(
-            client_config_files=["configs/client1.yaml", "configs/client2.yaml", "configs/client3.yaml"]
-        )
+        config = FLConfig(client_config_files=["configs/client1.yaml", "configs/client2.yaml", "configs/client3.yaml"])
 
         assert len(config.client_config_files) == 3
         assert "configs/client1.yaml" in config.client_config_files

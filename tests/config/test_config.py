@@ -326,7 +326,7 @@ class TestConfig:
         assert config.model.num_classes == 3  # default value
         assert config.training.seed == 42  # default value
 
-    @patch('datetime.datetime')
+    @patch("datetime.datetime")
     def test_config_post_process_run_name_generation(self, mock_datetime, sample_full_config_dict):
         """Test that _post_process generates appropriate run names."""
         # Mock datetime to return a fixed timestamp
@@ -342,7 +342,7 @@ class TestConfig:
         config = Config.from_dict(sample_full_config_dict)
         assert config.wandb.run_name == "my_experiment_20240101_120000"
 
-    @patch('datetime.datetime')
+    @patch("datetime.datetime")
     def test_config_post_process_output_directory(self, mock_datetime, sample_full_config_dict):
         """Test that _post_process sets appropriate output directories."""
         mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
@@ -446,7 +446,7 @@ class TestConfig:
         sample_full_config_dict["model"]["model_depth"] = 50
         sample_full_config_dict["wandb"]["run_name"] = ""
 
-        with patch('datetime.datetime') as mock_datetime:
+        with patch("datetime.datetime") as mock_datetime:
             mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
             config = Config.from_dict(sample_full_config_dict)
             assert config.wandb.run_name == "resnet3d50_20240101_120000"

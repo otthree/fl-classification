@@ -14,6 +14,7 @@ class TestAdniClassificationImports:
         """Test that main adni_classification package can be imported."""
         try:
             import adni_classification
+
             assert hasattr(adni_classification, "__version__")
         except ImportError as e:
             pytest.fail(f"Failed to import adni_classification package: {e}")
@@ -55,10 +56,8 @@ class TestAdniClassificationImports:
             )
 
             # Verify classes can be instantiated (basic smoke test)
-            config_classes = [Config, FLConfig, DataConfig, ModelConfig,
-                            TrainingConfig, CheckpointConfig, WandbConfig]
-            fl_config_classes = [SSHConfig, ClientMachineConfig,
-                               ServerMachineConfig, MultiMachineConfig]
+            config_classes = [Config, FLConfig, DataConfig, ModelConfig, TrainingConfig, CheckpointConfig, WandbConfig]
+            fl_config_classes = [SSHConfig, ClientMachineConfig, ServerMachineConfig, MultiMachineConfig]
 
             for cls in config_classes + fl_config_classes:
                 assert cls is not None, f"Class {cls.__name__} should not be None"
@@ -83,8 +82,7 @@ class TestAdniClassificationImports:
             assert callable(get_transforms)
 
             # Verify dataset classes exist
-            dataset_classes = [ADNIDataset, ADNICacheDataset,
-                             ADNIPersistentDataset, ADNISmartCacheDataset]
+            dataset_classes = [ADNIDataset, ADNICacheDataset, ADNIPersistentDataset, ADNISmartCacheDataset]
             for cls in dataset_classes:
                 assert cls is not None, f"Dataset class {cls.__name__} should not be None"
 
@@ -119,10 +117,10 @@ class TestAdniClassificationImports:
         """Test that all expected submodules exist."""
 
         expected_submodules = [
-            'adni_classification.config',
-            'adni_classification.datasets',
-            'adni_classification.models',
-            'adni_classification.utils'
+            "adni_classification.config",
+            "adni_classification.datasets",
+            "adni_classification.models",
+            "adni_classification.utils",
         ]
 
         for submodule in expected_submodules:
@@ -139,6 +137,7 @@ class TestAdniFlwrImports:
         """Test that main adni_flwr package can be imported."""
         try:
             import adni_flwr
+
             assert hasattr(adni_flwr, "__version__")
         except ImportError as e:
             pytest.fail(f"Failed to import adni_flwr package: {e}")
@@ -166,11 +165,20 @@ class TestAdniFlwrImports:
 
             # Verify all strategy classes exist
             strategy_classes = [
-                FLStrategyBase, ClientStrategyBase, StrategyAwareClient,
-                FedAvgStrategy, FedAvgClient, FedProxStrategy, FedProxClient,
-                DifferentialPrivacyStrategy, DifferentialPrivacyClient,
-                SecAggPlusStrategy, SecAggPlusClient, SecAggPlusFlowerClient,
-                StrategyFactory, StrategyConfigValidator
+                FLStrategyBase,
+                ClientStrategyBase,
+                StrategyAwareClient,
+                FedAvgStrategy,
+                FedAvgClient,
+                FedProxStrategy,
+                FedProxClient,
+                DifferentialPrivacyStrategy,
+                DifferentialPrivacyClient,
+                SecAggPlusStrategy,
+                SecAggPlusClient,
+                SecAggPlusFlowerClient,
+                StrategyFactory,
+                StrategyConfigValidator,
             ]
 
             for cls in strategy_classes:
@@ -187,13 +195,21 @@ class TestAdniFlwrImports:
         import adni_flwr.strategies as strategies_module
 
         expected_exports = [
-            "FLStrategyBase", "ClientStrategyBase", "StrategyAwareClient",
-            "FedAvgStrategy", "FedAvgClient",
-            "FedProxStrategy", "FedProxClient",
-            "DifferentialPrivacyStrategy", "DifferentialPrivacyClient",
-            "SecAggPlusStrategy", "SecAggPlusClient",
-            "SecAggPlusFlowerClient", "create_secagg_plus_client_fn",
-            "StrategyFactory", "StrategyConfigValidator",
+            "FLStrategyBase",
+            "ClientStrategyBase",
+            "StrategyAwareClient",
+            "FedAvgStrategy",
+            "FedAvgClient",
+            "FedProxStrategy",
+            "FedProxClient",
+            "DifferentialPrivacyStrategy",
+            "DifferentialPrivacyClient",
+            "SecAggPlusStrategy",
+            "SecAggPlusClient",
+            "SecAggPlusFlowerClient",
+            "create_secagg_plus_client_fn",
+            "StrategyFactory",
+            "StrategyConfigValidator",
         ]
 
         for export in expected_exports:
@@ -220,11 +236,13 @@ class TestAdniFlwrImports:
         try:
             # Import the utils module (even if it's empty)
             import adni_flwr.utils
+
             assert adni_flwr.utils is not None
 
             # Try to import specific utils if they exist
             try:
                 from adni_flwr.utils import logging_config, memory_monitor
+
                 # Verify these modules exist if imported successfully
                 assert logging_config is not None
                 assert memory_monitor is not None
@@ -237,10 +255,7 @@ class TestAdniFlwrImports:
 
     def test_submodule_structure(self):
         """Test that all expected submodules exist."""
-        expected_submodules = [
-            'adni_flwr.strategies',
-            'adni_flwr.utils'
-        ]
+        expected_submodules = ["adni_flwr.strategies", "adni_flwr.utils"]
 
         for submodule in expected_submodules:
             try:
@@ -286,9 +301,10 @@ class TestImportErrorHandling:
     def test_missing_dependency_handling(self):
         """Test that import errors are properly handled."""
         # This test verifies that our test structure itself is robust
-        with patch.dict(sys.modules, {'nonexistent_module': None}):
+        with patch.dict(sys.modules, {"nonexistent_module": None}):
             try:
                 import nonexistent_module  # This should fail  # noqa: F401
+
                 pytest.fail("Expected ImportError was not raised")
             except ImportError:
                 pass  # Expected behavior
@@ -299,9 +315,9 @@ class TestImportErrorHandling:
         import adni_flwr
 
         # Verify packages are properly structured
-        assert hasattr(adni_classification, '__file__'), "adni_classification should be a proper package"
-        assert hasattr(adni_flwr, '__file__'), "adni_flwr should be a proper package"
+        assert hasattr(adni_classification, "__file__"), "adni_classification should be a proper package"
+        assert hasattr(adni_flwr, "__file__"), "adni_flwr should be a proper package"
 
         # Verify package paths are correct
-        assert 'adni_classification' in adni_classification.__file__
-        assert 'adni_flwr' in adni_flwr.__file__
+        assert "adni_classification" in adni_classification.__file__
+        assert "adni_flwr" in adni_flwr.__file__
