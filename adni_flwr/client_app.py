@@ -1,6 +1,5 @@
 """Client application for ADNI Federated Learning."""
 
-import os
 from typing import Any, List, Optional
 
 import torch
@@ -189,9 +188,10 @@ def create_mods_for_strategy(strategy_type: str, config: Optional[Config] = None
             raise ValueError("Differential Privacy strategy requires LocalDpMod which is not available")
 
         if config is None:
-            # Use default parameters for initialization
-            logger.warning("No config provided for LocalDpMod, using default parameters")
-            return [LocalDpMod(clipping_norm=1.0, sensitivity=1.0, epsilon=1.0, delta=1e-5)]
+            raise ValueError(
+                "❌ CRITICAL ERROR: Differential Privacy strategy requires a config to create LocalDpMod. "
+                "Use 'create_dp_client_app(config)' function instead of 'create_client_app(\"differential_privacy\")'."
+            )
 
         # Create LocalDpMod with config parameters
         return [create_local_dp_mod(config)]
@@ -215,13 +215,35 @@ def create_local_dp_mod(config: Config) -> LocalDpMod:
 
     # Get DP parameters from config or use defaults
     clipping_norm = getattr(config.fl, "dp_clipping_norm", 1.0)
-
-    # Calculate sensitivity (typically equal to clipping norm for gradient updates)
-    sensitivity = clipping_norm
-
-    # Get privacy parameters from config
+    sensitivity = getattr(config.fl, "dp_sensitivity", clipping_norm)  # Use config value or fall back to clipping_norm
     epsilon = getattr(config.fl, "dp_epsilon", 1.0)
     delta = getattr(config.fl, "dp_delta", 1e-5)
+
+    # Convert values to float to ensure proper type (YAML can parse numbers as strings)
+    try:
+        clipping_norm = float(clipping_norm)
+        sensitivity = float(sensitivity)
+        epsilon = float(epsilon)
+        delta = float(delta)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(
+            f"❌ CRITICAL ERROR: Differential Privacy parameters must be numeric. "
+            f"Raw values: clipping_norm={clipping_norm} ({type(clipping_norm)}), "
+            f"sensitivity={sensitivity} ({type(sensitivity)}), "
+            f"epsilon={epsilon} ({type(epsilon)}), "
+            f"delta={delta} ({type(delta)}). "
+            f"Error: {e}"
+        ) from e
+
+    # Validate parameter ranges for LocalDpMod
+    if clipping_norm <= 0:
+        raise RuntimeError(f"❌ CRITICAL ERROR: LocalDpMod clipping_norm must be positive, got: {clipping_norm}")
+    if sensitivity <= 0:
+        raise RuntimeError(f"❌ CRITICAL ERROR: LocalDpMod sensitivity must be positive, got: {sensitivity}")
+    if epsilon <= 0:
+        raise RuntimeError(f"❌ CRITICAL ERROR: LocalDpMod epsilon must be positive, got: {epsilon}")
+    if delta <= 0 or delta >= 1:
+        raise RuntimeError(f"❌ CRITICAL ERROR: LocalDpMod delta must be between 0 and 1 (exclusive), got: {delta}")
 
     logger.info("Creating LocalDpMod with parameters:")
     logger.info(f"  clipping_norm: {clipping_norm}")
@@ -232,86 +254,153 @@ def create_local_dp_mod(config: Config) -> LocalDpMod:
     return LocalDpMod(clipping_norm, sensitivity, epsilon, delta)
 
 
-def determine_strategy_from_config() -> str:
-    """Determine which strategy is being used by checking available config files."""
-    try:
-        # This is a heuristic to determine strategy during app initialization
-        # We'll try to read the strategy from environment or use default client_fn
-        import sys
-
-        # Check command line arguments for config files
-        config_files = []
-        for arg in sys.argv:
-            if arg.endswith(".yaml") and "client" in arg and os.path.exists(arg):
-                config_files.append(arg)
-
-        # If we found config files, check strategy
-        for config_file in config_files:
-            try:
-                config = Config.from_yaml(config_file)
-                if hasattr(config.fl, "strategy"):
-                    strategy = config.fl.strategy.lower()
-                    if strategy in ["secagg+", "secaggplus"]:
-                        logger.info(f"🔒 SecAgg+ detected in config: {config_file}")
-                        return "secagg+"
-                    elif strategy == "differential_privacy":
-                        logger.info(f"🔒 Differential Privacy detected in config: {config_file}")
-                        return "differential_privacy"
-            except Exception:
-                continue
-
-        return "regular"
-    except Exception:
-        # If we can't determine, default to regular client
-        return "regular"
-
-
-def create_client_app(strategy_type: str = None, config: Optional[Config] = None) -> ClientApp:
+def create_client_app(strategy_type: str, config: Optional[Config] = None) -> ClientApp:
     """Create a ClientApp with appropriate mods based on strategy type.
 
     Args:
-        strategy_type: Type of strategy to create app for. If None, auto-detect from config files.
+        strategy_type: Type of strategy to create app for (required)
         config: Configuration object (optional, used for strategy-specific parameters)
 
     Returns:
         ClientApp instance with appropriate mods
+
+    Raises:
+        ValueError: If strategy requirements are not met or invalid strategy provided
     """
-    if strategy_type is None:
-        strategy_type = determine_strategy_from_config()
+    # Create mods for the strategy - fail explicitly if it doesn't work
+    mods = create_mods_for_strategy(strategy_type, config)
 
-    try:
-        # Create mods for the strategy
-        mods = create_mods_for_strategy(strategy_type, config)
+    # Log the app creation
+    if strategy_type == "secagg+":
+        logger.info("🔒 Creating SecAgg+ client app with secaggplus_mod")
+    elif strategy_type == "differential_privacy":
+        logger.info("🔒 Creating Differential Privacy client app with LocalDpMod")
+    else:
+        logger.info("📊 Creating regular client app")
 
-        # Log the app creation
-        if strategy_type == "secagg+":
-            logger.info("🔒 Creating SecAgg+ client app with secaggplus_mod")
-        elif strategy_type == "differential_privacy":
-            logger.info("🔒 Creating Differential Privacy client app with LocalDpMod")
-        else:
-            logger.info("📊 Creating regular client app")
-
-        return ClientApp(client_fn=client_fn, mods=mods)
-
-    except ValueError as e:
-        logger.error(f"❌ {e}, falling back to regular client")
-        return ClientApp(client_fn=client_fn)
+    return ClientApp(client_fn=client_fn, mods=mods)
 
 
-# Create the main app instance with auto-detection
-app = create_client_app()
+def create_dp_client_app(config: Config) -> ClientApp:
+    """Create a ClientApp with LocalDpMod configured for differential privacy.
 
-# Create specialized app instances for explicit use
+    Args:
+        config: Configuration object containing DP parameters (dp_clipping_norm, dp_sensitivity, etc.)
+
+    Returns:
+        ClientApp with LocalDpMod properly configured
+
+    Raises:
+        RuntimeError: If LocalDpMod is not available or config parameters are invalid
+    """
+    if not LOCALDPMOD_AVAILABLE:
+        raise RuntimeError(
+            "❌ CRITICAL ERROR: Differential Privacy requires LocalDpMod which is not available. "
+            "Please ensure you have the correct Flower version with LocalDpMod support."
+        )
+
+    # Validate that this is actually a DP config
+    if not (hasattr(config.fl, "strategy") and config.fl.strategy == "differential_privacy"):
+        raise ValueError(
+            f"❌ CRITICAL ERROR: Config strategy is '{getattr(config.fl, 'strategy', 'not specified')}' "
+            f"but expected 'differential_privacy'."
+        )
+
+    # Create LocalDpMod with the provided config
+    local_dp_mod = create_local_dp_mod(config)
+    logger.info("✅ Created DP ClientApp with LocalDpMod using provided config")
+
+    return ClientApp(client_fn=client_fn, mods=[local_dp_mod])
+
+
+# ==================================================================================
+# CLIENT APP INSTANCES - Choose the right one for your strategy
+# ==================================================================================
+#
+# IMPORTANT: Flower's ClientApp mods (like LocalDpMod, SecAggPlusMod) must be applied
+# at app creation time, NOT at runtime.
+#
+# USAGE IN PYPROJECT.TOML:
+# [tool.flwr.app.components]
+# clientapp = "adni_flwr.client_app:app"                          # Regular FL
+# clientapp = "adni_flwr.client_app:secagg_plus_app"             # SecAgg+
+# clientapp = "adni_flwr.client_app:differential_privacy_app"     # Differential Privacy
+#
+# ==================================================================================
+
+# Main app - Regular FedAvg/FedProx without any special mods
+app = ClientApp(client_fn=client_fn)
+
+# Specialized app instances
 regular_app = create_client_app("regular")
 
-# Create SecAgg+ app if available
+# SecAgg+ app - Pre-configured with SecAggPlusMod
 if SECAGGPLUS_MOD_AVAILABLE:
     secagg_plus_app = create_client_app("secagg+")
 else:
     secagg_plus_app = None
 
-# Create Differential Privacy app if available
-if LOCALDPMOD_AVAILABLE:
-    differential_privacy_app = create_client_app("differential_privacy")
-else:
-    differential_privacy_app = None
+
+def create_differential_privacy_app_with_defaults() -> Optional[ClientApp]:
+    """Create a differential privacy app with explicit default parameters.
+
+    Returns:
+        ClientApp with LocalDpMod using default parameters, None if DP not available
+    """
+    if not LOCALDPMOD_AVAILABLE:
+        logger.warning("LocalDpMod not available, cannot create differential_privacy_app")
+        return None
+
+    try:
+        # Explicit DP parameters - edit these values as needed for your use case
+        # Tuned for convergence: noise_stddev = sensitivity/epsilon = 1.0/100 = 0.01
+        default_dp_config = type(
+            "Config",
+            (),
+            {
+                "fl": type(
+                    "FL",
+                    (),
+                    {
+                        "strategy": "differential_privacy",
+                        "dp_clipping_norm": 1.0,  # 👈 EDIT THIS: Gradient clipping norm
+                        "dp_sensitivity": 1.0,  # 👈 EDIT THIS: Usually equals clipping_norm
+                        "dp_epsilon": 100.0,  # 👈 EDIT THIS: Privacy budget (higher = less privacy, better utility)
+                        "dp_delta": 1e-5,  # 👈 EDIT THIS: Failure probability
+                    },
+                )()
+            },
+        )()
+
+        local_dp_mod = create_local_dp_mod(default_dp_config)
+        logger.info("✅ Created differential_privacy_app with EXPLICIT DEFAULT parameters")
+        logger.info(f"   DP parameters: clipping_norm={1.0}, sensitivity={1.0}, epsilon={100.0}, delta={1e-5}")
+        logger.info(f"   Expected noise stddev: {1.0/100.0:.3f}")
+        return ClientApp(client_fn=client_fn, mods=[local_dp_mod])
+
+    except Exception as e:
+        logger.error(f"❌ Failed to create differential_privacy_app: {e}")
+        return None
+
+
+# ==================================================================================
+# DIFFERENTIAL PRIVACY APP CREATION
+# ==================================================================================
+
+# Create differential_privacy_app with explicit default parameters
+# Edit the parameters in create_differential_privacy_app_with_defaults() function above
+differential_privacy_app = create_differential_privacy_app_with_defaults()
+
+# ==================================================================================
+# SUMMARY:
+# - app: Regular ClientApp (FedAvg/FedProx)
+# - secagg_plus_app: ClientApp with SecAggPlusMod (if available)
+# - differential_privacy_app: ClientApp with LocalDpMod (EXPLICIT defaults - edit above to customize)
+#
+# Use in pyproject.toml: clientapp = "adni_flwr.client_app:differential_privacy_app"
+#
+# To customize DP parameters:
+# 1. Edit the values in create_differential_privacy_app_with_defaults() function above
+# 2. Key parameter: noise_stddev = dp_sensitivity / dp_epsilon
+# 3. Lower noise = better convergence, but less privacy
+# ==================================================================================
