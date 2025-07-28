@@ -375,7 +375,7 @@ def create_differential_privacy_app_with_defaults() -> Optional[ClientApp]:
         local_dp_mod = create_local_dp_mod(default_dp_config)
         logger.info("✅ Created differential_privacy_app with EXPLICIT DEFAULT parameters")
         logger.info(f"   DP parameters: clipping_norm={1.0}, sensitivity={1.0}, epsilon={100.0}, delta={1e-5}")
-        logger.info(f"   Expected noise stddev: {1.0/100.0:.3f}")
+        logger.info(f"   Expected noise stddev: {1.0 / 100.0:.3f}")
         return ClientApp(client_fn=client_fn, mods=[local_dp_mod])
 
     except Exception as e:
