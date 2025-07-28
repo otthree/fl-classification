@@ -30,7 +30,7 @@ jobs:
 
     - name: Lint with ruff
       run: |
-        uv run ruff check adni_classification tests --select E,W,F --ignore E501
+        uv run ruff check
 
     - name: Check code formatting
       run: |
