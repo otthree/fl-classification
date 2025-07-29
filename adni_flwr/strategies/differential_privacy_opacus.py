@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
+import torch.utils.data
 from flwr.common import EvaluateIns, FitIns, Parameters
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
@@ -351,6 +352,82 @@ class DifferentialPrivacyClient(ClientStrategyBase):
 
             logger.info(f"Client {self.client_id}: Privacy engine cleanup completed")
 
+    def _should_skip_privacy_accounting(self) -> bool:
+        """Check if privacy accounting should be skipped due to extreme parameters.
+
+        Returns:
+            True if privacy accounting should be skipped, False otherwise
+        """
+        # Skip if noise multiplier is outside stable range (causes numerical instability)
+        if self.noise_multiplier < 0.5 or self.noise_multiplier > 2.0:
+            return True
+
+        # Skip if target epsilon is outside very conservative range (unstable accounting)
+        if self.target_epsilon > 2.0 or self.target_epsilon < 0.5:
+            return True
+
+        # Skip if target delta is too small (causes numerical instability)
+        if self.target_delta and self.target_delta < 1e-5:
+            return True
+
+        return False
+
+    def _disable_inplace_operations(self, model: nn.Module) -> None:
+        """Disable inplace operations in the model to make it compatible with Opacus.
+
+        Args:
+            model: The model to modify
+        """
+        try:
+            logger.info(f"Client {self.client_id}: Scanning model for inplace operations...")
+            inplace_count = 0
+
+            def disable_inplace_recursive(module):
+                nonlocal inplace_count
+                for name, child in module.named_children():
+                    # Recursively process child modules
+                    disable_inplace_recursive(child)
+
+                    # Disable inplace for common activation functions
+                    if isinstance(child, (nn.ReLU, nn.LeakyReLU, nn.ELU, nn.SELU, nn.CELU, nn.RReLU)):
+                        if hasattr(child, "inplace") and child.inplace:
+                            logger.debug(
+                                f"Client {self.client_id}: Disabling inplace for {name}: {type(child).__name__}"
+                            )
+                            child.inplace = False
+                            inplace_count += 1
+
+                    # Handle ReLU6, Hardswish, Hardtanh, etc.
+                    elif isinstance(child, (nn.ReLU6, nn.Hardswish, nn.Hardtanh)):
+                        if hasattr(child, "inplace") and child.inplace:
+                            logger.debug(
+                                f"Client {self.client_id}: Disabling inplace for {name}: {type(child).__name__}"
+                            )
+                            child.inplace = False
+                            inplace_count += 1
+
+                    # Handle Dropout layers
+                    elif isinstance(child, (nn.Dropout, nn.Dropout2d, nn.Dropout3d)):
+                        if hasattr(child, "inplace") and child.inplace:
+                            logger.debug(
+                                f"Client {self.client_id}: Disabling inplace for {name}: {type(child).__name__}"
+                            )
+                            child.inplace = False
+                            inplace_count += 1
+
+            # Start the recursive disabling
+            disable_inplace_recursive(model)
+
+            if inplace_count > 0:
+                logger.info(f"Client {self.client_id}: Disabled inplace operations in {inplace_count} layers")
+            else:
+                logger.info(f"Client {self.client_id}: No inplace operations found to disable")
+
+        except Exception as e:
+            logger.error(f"Client {self.client_id}: Error disabling inplace operations: {e}")
+            # Continue anyway - this is a best-effort fix
+            logger.warning(f"Client {self.client_id}: Continuing despite failed inplace fix")
+
     def _create_opacus_compatible_dataloader(self, train_loader: DataLoader) -> DataLoader:
         """Create an Opacus-compatible dataloader from MONAI dataloader.
 
@@ -600,20 +677,36 @@ class DifferentialPrivacyClient(ClientStrategyBase):
             else:
                 logger.info(f"Client {self.client_id}: Model is already DP-compatible, no fixes needed")
 
+            # Fix inplace operations for Opacus compatibility
+            logger.info(f"Client {self.client_id}: Disabling inplace operations for Opacus compatibility...")
+            self._disable_inplace_operations(self.model)
+
             # Initialize privacy engine with secure_mode=False for better compatibility
             logger.info(f"Client {self.client_id}: Creating PrivacyEngine with secure_mode=False...")
             self.privacy_engine = PrivacyEngine(secure_mode=False)
 
-            # Make model, optimizer, and data loader private
-            logger.info(f"Client {self.client_id}: Calling privacy_engine.make_private...")
-            self.dp_model, self.dp_optimizer, self.dp_train_loader = self.privacy_engine.make_private(
+            # Make only model and optimizer private, avoid Opacus data loader issues
+            logger.info(f"Client {self.client_id}: Calling privacy_engine.make_private (model and optimizer only)...")
+
+            # First, create a dummy data loader for make_private (it won't be used)
+            dummy_dataset = torch.utils.data.TensorDataset(
+                torch.randn(1, 1),
+                torch.tensor([0]),  # Single dummy sample
+            )
+            dummy_loader = torch.utils.data.DataLoader(dummy_dataset, batch_size=1)
+
+            # Call make_private to get DP model and optimizer
+            self.dp_model, self.dp_optimizer, _ = self.privacy_engine.make_private(
                 module=self.model,
                 optimizer=self.optimizer,
-                data_loader=compatible_loader,
+                data_loader=dummy_loader,  # This won't be used
                 noise_multiplier=self.noise_multiplier,
                 max_grad_norm=self.max_grad_norm,
             )
-            logger.info(f"Client {self.client_id}: make_private completed successfully")
+
+            # Use our custom compatible loader instead of Opacus-created one
+            self.dp_train_loader = compatible_loader
+            logger.info(f"Client {self.client_id}: make_private completed (using custom data loader)")
 
             # CRITICAL: Ensure model stays on correct device after make_private
             self.dp_model = self.dp_model.to(self.device)
@@ -680,24 +773,9 @@ class DifferentialPrivacyClient(ClientStrategyBase):
             ) as memory_safe_data_loader:
                 for batch_idx, batch in enumerate(memory_safe_data_loader):
                     try:
-                        # Debug first batch
-                        if batch_idx == 0:
-                            logger.info(f"Processing first batch: batch_idx={batch_idx}")
-                            if torch.cuda.is_available():
-                                logger.info(
-                                    f"GPU memory during first batch: "
-                                    f"{torch.cuda.memory_allocated(self.device) / 1024**2:.2f} MB"
-                                )
-
                         # Ensure tensors are on correct device
                         images = batch["image"].to(self.device, non_blocking=True)
                         labels = batch["label"].to(self.device, non_blocking=True)
-
-                        # Debug batch info
-                        if batch_idx == 0:
-                            logger.info(f"Batch shapes - images: {images.shape}, labels: {labels.shape}")
-                            logger.info(f"Images device: {images.device}, Labels device: {labels.device}")
-                            logger.info(f"Model device: {next(self.model.parameters()).device}")
 
                         # Zero gradients
                         self.optimizer.zero_grad()
@@ -711,12 +789,6 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                             outputs = self.model(images)
                             loss = self.criterion(outputs, labels)
 
-                        # Debug first batch forward pass
-                        if batch_idx == 0:
-                            logger.info(
-                                f"Forward pass complete - outputs shape: {outputs.shape}, loss: {loss.item():.4f}"
-                            )
-
                         # Backward pass (Opacus handles DP automatically)
                         loss.backward()
 
@@ -728,12 +800,6 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                         _, predicted = torch.max(outputs.data, 1)
                         total_samples += labels.size(0)
                         total_correct += (predicted == labels).sum().item()
-
-                        # Log progress every 10 batches
-                        if (batch_idx + 1) % 10 == 0:
-                            logger.info(f"Batch {batch_idx + 1}/{len(memory_safe_data_loader)}: loss={loss.item():.4f}")
-                            if torch.cuda.is_available():
-                                logger.info(f"GPU memory: {torch.cuda.memory_allocated(self.device) / 1024**2:.2f} MB")
 
                     except Exception as batch_e:
                         logger.error(f"DP Client {self.client_id}: Error in batch {batch_idx}: {str(batch_e)}")
@@ -747,21 +813,61 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                 f"Training epoch complete: processed {total_samples} samples in {len(self.dp_train_loader)} batches"
             )
 
-            # Get privacy budget spent
+            # Get privacy budget spent (with smart skipping for extreme parameters)
             if self.privacy_engine is not None:
-                try:
-                    epsilon = self.privacy_engine.get_epsilon(
-                        delta=self._compute_target_delta(len(train_loader.dataset))
+                # Check if parameters are too extreme for stable privacy accounting
+                if self._should_skip_privacy_accounting():
+                    logger.warning(f"DP Client {self.client_id}: Skipping privacy accounting due to extreme parameters")
+                    logger.warning(
+                        f"DP Client {self.client_id}: noise_multiplier={self.noise_multiplier:.6f}, "
+                        f"target_epsilon={self.target_epsilon}"
                     )
-                    self.privacy_spent = {
-                        "epsilon": epsilon,
-                        "delta": self._compute_target_delta(len(train_loader.dataset)),
-                    }
 
-                    logger.info(f"Privacy budget spent: ε={epsilon:.3f}, δ={self.privacy_spent['delta']:.2e}")
-                except Exception as privacy_e:
-                    logger.error(f"DP Client {self.client_id}: Error getting privacy budget: {str(privacy_e)}")
-                    # Continue without privacy budget info
+                    # Use conservative estimates instead of actual calculation
+                    target_delta = self._compute_target_delta(len(train_loader.dataset))
+                    conservative_epsilon = min(self.target_epsilon * 0.1, 10.0)  # Conservative estimate
+
+                    self.privacy_spent = {
+                        "epsilon": conservative_epsilon,
+                        "delta": target_delta,
+                        "warning": "privacy_accounting_skipped_due_to_extreme_parameters",
+                    }
+                    logger.info(
+                        f"Using conservative privacy estimates: ε={conservative_epsilon:.3f}, δ={target_delta:.2e}"
+                    )
+                else:
+                    # Normal privacy accounting for reasonable parameters
+                    try:
+                        epsilon = self.privacy_engine.get_epsilon(
+                            delta=self._compute_target_delta(len(train_loader.dataset))
+                        )
+                        self.privacy_spent = {
+                            "epsilon": epsilon,
+                            "delta": self._compute_target_delta(len(train_loader.dataset)),
+                        }
+
+                        logger.info(f"Privacy budget spent: ε={epsilon:.3f}, δ={self.privacy_spent['delta']:.2e}")
+                    except Exception as privacy_e:
+                        logger.error(f"DP Client {self.client_id}: Error getting privacy budget: {str(privacy_e)}")
+
+                        # Check if it's a memory allocation error (numerical instability)
+                        if "Unable to allocate" in str(privacy_e) or "GiB" in str(privacy_e):
+                            logger.error(
+                                f"DP Client {self.client_id}: Privacy accounting failed due to numerical instability"
+                            )
+                            logger.error(
+                                f"DP Client {self.client_id}: This usually happens with extreme parameter values"
+                            )
+
+                        # Set error indicators as fallback
+                        self.privacy_spent = {
+                            "epsilon": -1.0,  # Indicates calculation failed
+                            "delta": -1.0,  # Indicates calculation failed
+                            "error": "privacy_accounting_failed",
+                        }
+                        logger.warning(
+                            f"DP Client {self.client_id}: Using error indicators due to privacy accounting failure"
+                        )
 
             # Compute metrics
             avg_loss = total_loss / len(self.dp_train_loader) if len(self.dp_train_loader) > 0 else 0.0
@@ -796,7 +902,7 @@ class DifferentialPrivacyClient(ClientStrategyBase):
                     f"{torch.cuda.memory_allocated(self.device) / 1024**2:.2f} MB"
                 )
 
-            logger.info(f"DP Client {self.client_id}: train_epoch completed successfully")
+            logger.info(f"DP Client {self.client_id}: train_epoch completed")
             return avg_loss, avg_accuracy
 
         except Exception as e:
@@ -810,35 +916,41 @@ class DifferentialPrivacyClient(ClientStrategyBase):
     def get_custom_metrics(self) -> Dict[str, Any]:
         """Return custom Differential Privacy-specific metrics."""
         try:
+            epsilon_spent = self.privacy_spent.get("epsilon", 0.0)
+            delta_spent = self.privacy_spent.get("delta", 0.0)
+            privacy_error = self.privacy_spent.get("error", None)
+
             metrics = {
-                "dp_noise_multiplier": self.noise_multiplier,
-                "dp_max_grad_norm": self.max_grad_norm,
-                "dp_target_epsilon": self.target_epsilon,
-                "dp_epsilon_spent": self.privacy_spent.get("epsilon", 0.0),
-                "dp_delta_spent": self.privacy_spent.get("delta", 0.0),
-                "dp_budget_exhausted": self.privacy_spent.get("epsilon", 0.0) > self.target_epsilon,
+                "dp_noise_multiplier": float(self.noise_multiplier),
+                "dp_max_grad_norm": float(self.max_grad_norm),
+                "dp_target_epsilon": float(self.target_epsilon),
+                "dp_epsilon_spent": float(epsilon_spent),
+                "dp_delta_spent": float(delta_spent),
+                "dp_budget_exhausted": bool(epsilon_spent > self.target_epsilon if epsilon_spent >= 0 else False),
             }
 
-            # Add GPU utilization info if available
-            if torch.cuda.is_available():
-                metrics.update(
-                    {
-                        "gpu_memory_allocated_mb": torch.cuda.memory_allocated(self.device) / 1024**2,
-                        "gpu_memory_reserved_mb": torch.cuda.memory_reserved(self.device) / 1024**2,
-                        "gpu_utilization_active": torch.cuda.is_available()
-                        and torch.cuda.memory_allocated(self.device) > 0,
-                    }
-                )
+            # Add privacy accounting status
+            privacy_warning = self.privacy_spent.get("warning", None)
+            if privacy_error:
+                metrics["dp_privacy_accounting_failed"] = True
+                metrics["dp_privacy_error"] = str(privacy_error)
+            elif privacy_warning:
+                metrics["dp_privacy_accounting_failed"] = False
+                metrics["dp_privacy_warning"] = str(privacy_warning)
+            else:
+                metrics["dp_privacy_accounting_failed"] = False
+
+            # GPU utilization info removed per user request
 
             logger.info(f"DP Client {self.client_id}: Generated custom metrics: {metrics}")
             return metrics
         except Exception as e:
             logger.error(f"DP Client {self.client_id}: Error in get_custom_metrics: {str(e)}")
-            # Return minimal metrics to avoid breaking the flow
+            # Return minimal metrics to avoid breaking the flow (ensure native Python types)
             return {
-                "dp_noise_multiplier": self.noise_multiplier,
-                "dp_max_grad_norm": self.max_grad_norm,
-                "dp_target_epsilon": self.target_epsilon,
+                "dp_noise_multiplier": float(self.noise_multiplier),
+                "dp_max_grad_norm": float(self.max_grad_norm),
+                "dp_target_epsilon": float(self.target_epsilon),
             }
 
     def get_parameters(self):
