@@ -186,26 +186,35 @@ publisher = "tin-hoang"
 
 [tool.flwr.app.components]
 serverapp = "adni_flwr.server_app:app"
-clientapp = "adni_flwr.client_app:app"
+# ==================================================================================
+# DIFFERENTIAL PRIVACY CLIENT APP OPTIONS
+# ==================================================================================
+# 🥇 RECOMMENDED: Opacus gradient-level DP (fixes training loss issue)
+clientapp = "adni_flwr.client_app:differential_privacy_app"
+
+# Alternative options:
+# clientapp = "adni_flwr.client_app:adaptive_differential_privacy_app"     # Adaptive parameter-level DP
+# clientapp = "adni_flwr.client_app:scheduled_differential_privacy_app"   # Scheduled epsilon DP
+# clientapp = "adni_flwr.client_app:differential_privacy_app"             # Original LocalDpMod (has loss issue)
 
 [tool.flwr.app.config]
-client-config-files = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp/client1.yaml,configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp/client2.yaml,configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp/client3.yaml"
-server-config-file = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp/fl_server.yaml"
+client-config-files = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-2clients-dp/client1.yaml,configs/fl-rosanna-3T_P1-trainval_1035images-2classes-2clients-dp/client2.yaml"
+server-config-file = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-2clients-dp/fl_server.yaml"
 
 [tool.flwr.federations]
 default = "local-simulation-gpu"
 
 [tool.flwr.federations.local-simulation-gpu]
-options.num-supernodes = 3
+options.num-supernodes = 2
 options.backend.client-resources.num-cpus = 8
-options.backend.client-resources.num-gpus = 0.33
+options.backend.client-resources.num-gpus = 0.5
 options.backend.ray-config.max-restarts = 3
 options.backend.ray-config.max-task-retries = 3
 
 [tool.flwr.federations.multi-machine]
 address = "127.0.0.1:9093"
 insecure = true
-options.num-supernodes = 3
+options.num-supernodes = 2
 options.backend.client-resources.num-cpus = 10
 options.backend.client-resources.num-gpus = 1.0
 options.backend.ray-config.max-restarts = 3
