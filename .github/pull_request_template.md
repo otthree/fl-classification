@@ -16,77 +16,8 @@ Fixes #(issue_number) <!-- Remove if not applicable -->
 - [ ] ⚡ Performance improvement
 - [ ] 🔒 Security improvement
 
-## Federated Learning Impact
-- [ ] Affects FedAvg strategy
-- [ ] Affects FedProx strategy
-- [ ] Affects SecAgg/SecAggPlus strategies
-- [ ] Introduces new FL strategy
-- [ ] Changes client-side logic
-- [ ] Changes server-side logic
-- [ ] Affects aggregation algorithms
-- [ ] No FL impact
-
-## Component Changes
-- [ ] Model architectures (`adni_classification/models/`)
-- [ ] Dataset handling (`adni_classification/datasets/`)
-- [ ] FL implementation (`adni_flwr/`)
-- [ ] Training scripts (`scripts/`)
-- [ ] Configuration system (`configs/`)
-- [ ] Utilities (`adni_classification/utils/`)
-- [ ] Documentation
-- [ ] Tests
-- [ ] Dependencies
-
-## Testing
-### Test Coverage
-- [ ] Added new tests for new functionality
-- [ ] Updated existing tests
-- [ ] All tests pass locally
-- [ ] Manual testing completed
-
-### FL Testing
-- [ ] Tested with local simulation (`run_local_simulation.py`)
-- [ ] Tested with multi-machine setup (`run_multi_machines_tmux.py`)
-- [ ] Tested with different client counts (2, 3, 4)
-- [ ] Tested with different model architectures
-- [ ] Verified privacy preservation (if applicable)
-
-### Research Validation
-- [ ] Verified results against baseline
-- [ ] Compared with centralized training
-- [ ] Statistical significance testing (if applicable)
-- [ ] Performance metrics documented
-
-## Configuration Impact
-**Breaking changes to configuration?** Yes/No
-
-If yes, describe:
-- Which config files are affected
-- Migration path for existing configs
-- Backward compatibility considerations
-
-## Performance Impact
-- [ ] No performance impact
-- [ ] Improves performance
-- [ ] May decrease performance
-- [ ] Performance impact unknown
-
-**Benchmarks** (if applicable):
-- Training time: Before/After
-- Memory usage: Before/After
-- Model accuracy: Before/After
-- Communication overhead: Before/After
-
-## Research Context
-**Research Motivation**: Why is this change scientifically relevant?
-
-**Methodology**: How does this change affect the experimental methodology?
-
-**Expected Outcomes**: What research outcomes does this enable or improve?
-
 ## Checklist
 ### Code Quality
-- [ ] Code follows the project's style guidelines
 - [ ] Self-review of the code completed
 - [ ] Code is properly commented/documented
 - [ ] No obvious performance issues
@@ -101,7 +32,7 @@ If yes, describe:
 ### Dependencies
 - [ ] No new dependencies added
 - [ ] New dependencies justified and documented
-- [ ] Updated `pyproject.toml`/`requirements.txt` if needed
+- [ ] Updated `pyproject.toml`/`uv.lock` if needed
 - [ ] Dependencies are compatible with existing versions
 
 ### Research Reproducibility
