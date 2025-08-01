@@ -15,7 +15,7 @@ data:
   multiprocessing_context: "spawn"  # Options: "spawn", "fork", "forkserver"
 
 model:
-  name: "rosanna_cnn"  # Using our secure federated CNN model
+  name: "rosanna_cnn_gn"  # Using our secure federated CNN model
   num_classes: 2  # CN, MCI, AD - will be automatically adjusted based on classification_mode
   pretrained_checkpoint: null
   # Pretrained model specific parameters
@@ -44,8 +44,8 @@ wandb:
   use_wandb: true
   project: "fl-adni-classification"
   entity: "tin-hoang"
-  tags: ["federated-learning", "fedavg", "rosanna"]
-  notes: "bs2"
+  tags: ["federated-learning", "fedavg", "rosanna_gn"]
+  notes: "bs2, groupnorm"
   run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-2clients-fedavg-seed244"
 
 # FL-specific settings

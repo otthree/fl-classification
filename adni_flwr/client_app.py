@@ -560,7 +560,7 @@ def create_differential_privacy_app_with_defaults() -> Optional[ClientApp]:
                         "strategy": "differential_privacy",
                         "dp_clipping_norm": 1.0,  # 👈 EDIT THIS: Gradient clipping norm
                         "dp_sensitivity": 1.0,  # 👈 EDIT THIS: Usually equals clipping_norm
-                        "dp_epsilon": 1000.0,  # 👈 EDIT THIS: Privacy budget (higher = less privacy, better utility)
+                        "dp_epsilon": 500.0,  # 👈 EDIT THIS: Privacy budget (higher = less privacy, better utility)
                         "dp_delta": 1e-5,  # 👈 EDIT THIS: Failure probability
                     },
                 )()
