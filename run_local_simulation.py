@@ -758,10 +758,8 @@ Note: Run this script in your own tmux session if you want session persistence.
 
         config = load_config_from_yaml(args.config_file)
 
-        # For local simulation, we can work with minimal configuration
-        project_dir = getattr(config.fl, "project_dir", os.getcwd())
-        if hasattr(config.fl, "multi_machine") and config.fl.multi_machine:
-            project_dir = config.fl.multi_machine.project_dir
+        # For local simulation, always use the current working directory
+        project_dir = os.getcwd()
 
     except FileNotFoundError as e:
         print(f"❌ Configuration file error: {e}")
