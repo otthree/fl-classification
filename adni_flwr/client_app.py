@@ -64,8 +64,31 @@ class AdaptiveLocalDpMod:
         logger.info(f"   decay_factor: {decay_factor}")
         logger.info(f"   min_epsilon: {self.min_epsilon}")
 
-    def __call__(self, parameters):
-        """Apply adaptive DP noise to parameters."""
+    def __call__(self, message, context, ffn):
+        """Apply adaptive DP noise to parameters.
+
+        This method is called by Flower's mod system with the signature:
+        __call__(self, message, context, ffn)
+
+        Args:
+            message: The message from the server
+            context: The context object
+            ffn: The next function in the chain
+
+        Returns:
+            The modified message with adaptive DP noise applied
+        """
+        # Call the next function in the chain to get the original response
+        response = ffn(message, context)
+
+        # Check if this is a fit response with parameters
+        if hasattr(response, 'parameters') and response.parameters is not None:
+            parameters = response.parameters
+        else:
+            # If no parameters in response, return as-is
+            logger.debug("No parameters found in response, skipping adaptive DP noise")
+            return response
+
         self.round_count += 1
 
         # Update epsilon with exponential decay (less noise over time)
@@ -106,7 +129,9 @@ class AdaptiveLocalDpMod:
         logger.info(f"   noise_norm: {total_noise_norm:.6f}")
         logger.info(f"   noise/param_ratio: {total_noise_norm/max(total_param_norm, 1e-6):.4f}")
 
-        return noisy_parameters
+        # Update the response with noisy parameters
+        response.parameters = noisy_parameters
+        return response
 
 
 def create_adaptive_dp_app(config: Optional[Config] = None) -> ClientApp:
@@ -201,15 +226,67 @@ def create_adaptive_dp_app(config: Optional[Config] = None) -> ClientApp:
         try:
             from adni_flwr.strategies import StrategyFactory
 
-            client_strategy = StrategyFactory.create_client_strategy(loaded_config, model, optimizer, criterion, device)
+            client_strategy = StrategyFactory.create_client_strategy(
+                strategy_name="differential_privacy",
+                config=loaded_config,
+                model=model,
+                optimizer=optimizer,
+                criterion=criterion,
+                device=device,
+            )
 
             return StrategyAwareClient(
-                strategy=client_strategy, train_loader=train_loader, val_loader=val_loader, device=device
+                config=loaded_config,
+                device=device,
+                client_strategy=client_strategy,
+                context=context,
+                total_fl_rounds=loaded_config.fl.num_rounds,
+                wandb_logger=None,  # Add wandb_logger if needed
             )
         except Exception as e:
             raise RuntimeError(f"Failed to create adaptive DP client strategy: {e}") from e
 
-    return ClientApp(client_fn=adaptive_dp_client_fn)
+    # Create AdaptiveLocalDpMod with parameters from config or defaults
+    if config is not None:
+        # Use parameters from provided config
+        clipping_norm = float(config.fl.dp_clipping_norm)
+        sensitivity = float(config.fl.dp_sensitivity)
+        initial_epsilon = float(config.fl.dp_epsilon)
+        delta = float(config.fl.dp_delta)
+        decay_factor = getattr(config.fl, "dp_decay_factor", 0.95)
+        min_epsilon = getattr(config.fl, "dp_min_epsilon", None)
+
+        logger.info("Creating AdaptiveLocalDpMod with config parameters:")
+        logger.info(f"  clipping_norm: {clipping_norm}")
+        logger.info(f"  sensitivity: {sensitivity}")
+        logger.info(f"  initial_epsilon: {initial_epsilon}")
+        logger.info(f"  delta: {delta}")
+        logger.info(f"  decay_factor: {decay_factor}")
+        logger.info(f"  min_epsilon: {min_epsilon}")
+
+        adaptive_dp_mod = AdaptiveLocalDpMod(
+            clipping_norm=clipping_norm,
+            sensitivity=sensitivity,
+            initial_epsilon=initial_epsilon,
+            delta=delta,
+            decay_factor=decay_factor,
+            min_epsilon=min_epsilon,
+        )
+    else:
+        # Use default parameters
+        adaptive_dp_mod = AdaptiveLocalDpMod(
+            clipping_norm=1.0,  # Default value
+            sensitivity=1.0,     # Default value
+            initial_epsilon=100.0,  # Default value - high epsilon for less noise
+            delta=1e-5,          # Default value
+            decay_factor=0.95,   # Default decay factor
+            min_epsilon=10.0,    # Default minimum epsilon
+        )
+
+        logger.info("Created adaptive_differential_privacy_app with AdaptiveLocalDpMod (default parameters)")
+        logger.info("Note: For custom parameters, use create_adaptive_dp_app(config) with a config object")
+
+    return ClientApp(client_fn=adaptive_dp_client_fn, mods=[adaptive_dp_mod])
 
 
 # ==================================================================================
@@ -894,10 +971,22 @@ def create_scheduled_dp_app(config: Optional[Config] = None) -> ClientApp:
         try:
             from adni_flwr.strategies import StrategyFactory
 
-            client_strategy = StrategyFactory.create_client_strategy(loaded_config, model, optimizer, criterion, device)
+            client_strategy = StrategyFactory.create_client_strategy(
+                strategy_name="differential_privacy",
+                config=loaded_config,
+                model=model,
+                optimizer=optimizer,
+                criterion=criterion,
+                device=device,
+            )
 
             return StrategyAwareClient(
-                strategy=client_strategy, train_loader=train_loader, val_loader=val_loader, device=device
+                config=loaded_config,
+                device=device,
+                client_strategy=client_strategy,
+                context=context,
+                total_fl_rounds=loaded_config.fl.num_rounds,
+                wandb_logger=None,  # Add wandb_logger if needed
             )
         except Exception as e:
             raise RuntimeError(f"Failed to create scheduled DP client strategy: {e}") from e
