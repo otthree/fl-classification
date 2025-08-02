@@ -5,11 +5,9 @@ covering initialization, CSV format detection, data standardization, image file
 discovery, and error handling scenarios.
 """
 
-import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -848,7 +846,7 @@ class TestErrorHandling:
                 "I456": "/test/I456.nii.gz",
             }
 
-            dataset = ADNIBaseDataset(
+            _ = ADNIBaseDataset(
                 csv_path=str(csv_path),
                 img_dir=str(img_dir),
                 verbose=True,
