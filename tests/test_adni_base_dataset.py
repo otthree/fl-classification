@@ -38,7 +38,7 @@ class TestADNIBaseDatasetInit:
             img_subdir.mkdir()
             (img_subdir / f"test_{img_id}.nii.gz").touch()
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123" / "test_I123.nii.gz"),
                 "I456": str(img_dir / "I456" / "test_I456.nii.gz"),
@@ -127,7 +127,7 @@ class TestADNIBaseDatasetInit:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -158,7 +158,7 @@ class TestADNIBaseDatasetInit:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -189,7 +189,7 @@ class TestADNIBaseDatasetInit:
         img_dir = temp_dir / "images"
         img_dir.mkdir()
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             # Only return some image files, not all
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
@@ -219,7 +219,7 @@ class TestCSVFormatDetection:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -245,7 +245,7 @@ class TestCSVFormatDetection:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -293,7 +293,7 @@ class TestClassificationModes:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -326,7 +326,7 @@ class TestClassificationModes:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -359,7 +359,7 @@ class TestClassificationModes:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -396,7 +396,7 @@ class TestDataStandardization:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -426,7 +426,7 @@ class TestDataStandardization:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -460,7 +460,7 @@ class TestDataStandardization:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -494,7 +494,7 @@ class TestDataStandardization:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": str(img_dir / "I123.nii.gz"),
                 "I456": str(img_dir / "I456.nii.gz"),
@@ -558,7 +558,7 @@ class TestDataStandardization:
 class TestImageFileDiscovery:
     """Test image file discovery and mapping functionality."""
 
-    @patch('os.walk')
+    @patch("os.walk")
     def test_find_image_files_original_format(self, mock_walk, temp_dir: Path) -> None:
         """Test image file discovery for original format."""
         csv_data = {
@@ -588,7 +588,7 @@ class TestImageFileDiscovery:
         assert dataset.image_paths["I123"].endswith("test_I123.nii.gz")
         assert dataset.image_paths["I456"].endswith("test_I456.nii")
 
-    @patch('os.walk')
+    @patch("os.walk")
     def test_find_image_files_alternative_format(self, mock_walk, temp_dir: Path) -> None:
         """Test image file discovery for alternative format."""
         csv_data = {
@@ -626,7 +626,7 @@ class TestImageFileDiscovery:
         csv_path = temp_dir / "test.csv"
         pd.DataFrame(csv_data).to_csv(csv_path, index=False)
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {"I123": "/test/image_I123.nii.gz"}
 
             dataset = ADNIBaseDataset(
@@ -649,7 +649,7 @@ class TestImageFileDiscovery:
         csv_path = temp_dir / "test.csv"
         pd.DataFrame(csv_data).to_csv(csv_path, index=False)
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {"I123": "/test/image_123.nii.gz"}
 
             dataset = ADNIBaseDataset(
@@ -672,7 +672,7 @@ class TestImageFileDiscovery:
         csv_path = temp_dir / "test.csv"
         pd.DataFrame(csv_data).to_csv(csv_path, index=False)
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {"I123": "/test/image.nii.gz"}
 
             dataset = ADNIBaseDataset(
@@ -685,7 +685,7 @@ class TestImageFileDiscovery:
             result = dataset._extract_id_from_filename("invalid_filename.nii.gz")
             assert result is None
 
-    @patch('os.walk')
+    @patch("os.walk")
     def test_prioritize_nii_gz_over_nii(self, mock_walk, temp_dir: Path) -> None:
         """Test that .nii.gz files are prioritized over .nii files."""
         csv_data = {
@@ -726,7 +726,7 @@ class TestDataListCreation:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": "/test/I123.nii.gz",
                 "I456": "/test/I456.nii.gz",
@@ -761,7 +761,7 @@ class TestDataListCreation:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": "/test/I123.nii.gz",
                 "I456": "/test/I456.nii.gz",
@@ -814,7 +814,7 @@ class TestErrorHandling:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {"I123": "/test/I123.nii.gz"}
 
             # This should work (no validation currently implemented)
@@ -840,7 +840,7 @@ class TestErrorHandling:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {
                 "I123": "/test/I123.nii.gz",
                 "I456": "/test/I456.nii.gz",
@@ -869,7 +869,7 @@ class TestErrorHandling:
 
         img_dir = temp_dir / "images"
 
-        with patch.object(ADNIBaseDataset, '_find_image_files') as mock_find:
+        with patch.object(ADNIBaseDataset, "_find_image_files") as mock_find:
             mock_find.return_value = {"I123": "/test/I123.nii.gz"}
 
             dataset = ADNIBaseDataset(

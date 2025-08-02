@@ -73,7 +73,6 @@ exclude = [
     "models",
     "notebooks",
     "scripts",
-    "tests",
     "outputs",
     "wandb",
     # Add your custom folders here
