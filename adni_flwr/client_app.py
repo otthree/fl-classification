@@ -82,7 +82,7 @@ class AdaptiveLocalDpMod:
         response = ffn(message, context)
 
         # Check if this is a fit response with parameters
-        if hasattr(response, 'parameters') and response.parameters is not None:
+        if hasattr(response, "parameters") and response.parameters is not None:
             parameters = response.parameters
         else:
             # If no parameters in response, return as-is
@@ -276,11 +276,11 @@ def create_adaptive_dp_app(config: Optional[Config] = None) -> ClientApp:
         # Use default parameters
         adaptive_dp_mod = AdaptiveLocalDpMod(
             clipping_norm=1.0,  # Default value
-            sensitivity=1.0,     # Default value
+            sensitivity=1.0,  # Default value
             initial_epsilon=100.0,  # Default value - high epsilon for less noise
-            delta=1e-5,          # Default value
-            decay_factor=0.95,   # Default decay factor
-            min_epsilon=10.0,    # Default minimum epsilon
+            delta=1e-5,  # Default value
+            decay_factor=0.95,  # Default decay factor
+            min_epsilon=10.0,  # Default minimum epsilon
         )
 
         logger.info("Created adaptive_differential_privacy_app with AdaptiveLocalDpMod (default parameters)")
@@ -876,131 +876,3 @@ except Exception as e:
     logger.error(f"Failed to create opacus_differential_privacy_app: {e}")
     # Re-raise to make the error explicit - don't hide import failures
     raise RuntimeError(f"Failed to initialize opacus_differential_privacy_app: {e}") from e
-
-
-def create_scheduled_dp_app(config: Optional[Config] = None) -> ClientApp:
-    """Create a ClientApp with epsilon scheduling to reduce noise over time.
-
-    This modifies the configuration to use increasing epsilon (decreasing noise)
-    as training progresses, addressing the parameter shrinkage issue.
-
-    Args:
-        config: Optional pre-loaded config. If None, will be loaded from context.
-
-    Returns:
-        ClientApp with scheduled epsilon differential privacy
-
-    Raises:
-        ValueError: If config is invalid or strategy is not differential_privacy
-        ImportError: If LocalDpMod is not available
-        FileNotFoundError: If config file cannot be found
-    """
-    if not LOCALDPMOD_AVAILABLE:
-        raise ImportError("LocalDpMod not available. Please install the required Flower version with DP support.")
-
-    def scheduled_dp_client_fn(context: Context):
-        """Client factory with epsilon scheduling."""
-        # Standard setup
-        gpu_idx = context.node_config.get("gpu-id", 0)
-        device = torch.device(f"cuda:{gpu_idx}" if torch.cuda.is_available() else "cpu")
-        partition_id = context.node_config.get("partition-id", 0)
-
-        # Load config using proper dynamic config loading
-        if config is None:
-            # Get client config files from app config (same pattern as main client_fn)
-            client_config_files = context.run_config.get("client-config-files", "")
-            if isinstance(client_config_files, str):
-                client_config_files = [s.strip() for s in client_config_files.split(",") if s.strip()]
-
-            # Ensure we have enough config files for all partitions
-            if partition_id >= len(client_config_files):
-                raise ValueError(
-                    f"Partition ID {partition_id} is out of range for {len(client_config_files)} client config files"
-                )
-
-            # Get the specific config file for this client
-            config_path = client_config_files[partition_id]
-            try:
-                from adni_classification.config.config import Config
-
-                loaded_config = Config.from_yaml(config_path)
-                logger.info(f"Loaded config from: {config_path}")
-            except FileNotFoundError as e:
-                raise FileNotFoundError(f"Config file not found: {config_path}. Error: {e}") from e
-            except Exception as e:
-                raise ValueError(f"Failed to load config from {config_path}. Error: {e}") from e
-        else:
-            loaded_config = config
-            logger.info("Using provided config")
-
-        # Strict validation
-        if not hasattr(loaded_config, "fl"):
-            raise ValueError("Config missing 'fl' section")
-
-        if not hasattr(loaded_config.fl, "strategy"):
-            raise ValueError("Config missing 'fl.strategy' field")
-
-        if loaded_config.fl.strategy != "differential_privacy":
-            raise ValueError(f"Config strategy must be 'differential_privacy', got: '{loaded_config.fl.strategy}'")
-
-        # Validate required DP parameters
-        required_dp_params = ["dp_epsilon", "dp_sensitivity", "dp_clipping_norm", "dp_delta"]
-        missing_params = [param for param in required_dp_params if not hasattr(loaded_config.fl, param)]
-
-        if missing_params:
-            raise ValueError(
-                f"Missing required DP parameters: {missing_params}. "
-                f"Please add these to your config file under the 'fl' section."
-            )
-
-        # Create client components
-        try:
-            model = load_model(loaded_config).to(device)
-            train_loader, val_loader = load_data(loaded_config)
-            criterion = create_criterion(loaded_config, train_loader.dataset, device)
-
-            optimizer = torch.optim.Adam(
-                model.parameters(),
-                lr=loaded_config.training.learning_rate,
-                weight_decay=loaded_config.training.weight_decay,
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to initialize model/data/optimizer: {e}") from e
-
-        # Create standard DP client
-        try:
-            from adni_flwr.strategies import StrategyFactory
-
-            client_strategy = StrategyFactory.create_client_strategy(
-                strategy_name="differential_privacy",
-                config=loaded_config,
-                model=model,
-                optimizer=optimizer,
-                criterion=criterion,
-                device=device,
-            )
-
-            return StrategyAwareClient(
-                config=loaded_config,
-                device=device,
-                client_strategy=client_strategy,
-                context=context,
-                total_fl_rounds=loaded_config.fl.num_rounds,
-                wandb_logger=None,  # Add wandb_logger if needed
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to create scheduled DP client strategy: {e}") from e
-
-    return ClientApp(client_fn=scheduled_dp_client_fn)
-
-
-# ==================================================================================
-# SCHEDULED DP APP INSTANCE - Explicit Error Handling
-# ==================================================================================
-try:
-    scheduled_differential_privacy_app = create_scheduled_dp_app()
-    logger.info("Scheduled differential privacy app created successfully")
-except Exception as e:
-    logger.error(f"Failed to create scheduled_differential_privacy_app: {e}")
-    # Re-raise to make the error explicit - don't hide import failures
-    raise RuntimeError(f"Failed to initialize scheduled_differential_privacy_app: {e}") from e

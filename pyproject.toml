@@ -181,21 +181,21 @@ packages = ["adni_classification", "adni_flwr"]
 "Homepage" = "https://github.com/tin-hoang/fl-adni-classification"
 "Bug Tracker" = "https://github.com/tin-hoang/fl-adni-classification/issues"
 
+# ==================================================================================
+# FLOWER - FEDERATED LEARNING OPTIONS
+# ==================================================================================
+
 [tool.flwr.app]
 publisher = "tin-hoang"
 
 [tool.flwr.app.components]
 serverapp = "adni_flwr.server_app:app"
-# ==================================================================================
-# DIFFERENTIAL PRIVACY CLIENT APP OPTIONS
-# ==================================================================================
-# 🥇 RECOMMENDED: Opacus gradient-level DP (fixes training loss issue)
-clientapp = "adni_flwr.client_app:differential_privacy_app"
+clientapp = "adni_flwr.client_app:adaptive_differential_privacy_app"
 
 # Alternative options:
-# clientapp = "adni_flwr.client_app:adaptive_differential_privacy_app"     # Adaptive parameter-level DP
-# clientapp = "adni_flwr.client_app:scheduled_differential_privacy_app"   # Scheduled epsilon DP
-# clientapp = "adni_flwr.client_app:differential_privacy_app"             # Original LocalDpMod (has loss issue)
+# clientapp = "adni_flwr.client_app:adaptive_differential_privacy_app"    # Adaptive parameter-level DP
+# clientapp = "adni_flwr.client_app:differential_privacy_app"             # Original LocalDpMod (must set default values in client_app.py)
+# clientapp = "adni_flwr.client_app:opacus_differential_privacy_app"      # Opacus gradient-level DP (experimental)
 
 [tool.flwr.app.config]
 client-config-files = "configs/fl-rosanna-3T_P1-trainval_1035images-2classes-2clients-dp/client1.yaml,configs/fl-rosanna-3T_P1-trainval_1035images-2classes-2clients-dp/client2.yaml"
