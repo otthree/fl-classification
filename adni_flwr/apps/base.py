@@ -185,7 +185,7 @@ class DifferentialPrivacyMixin:
                         "strategy": "differential_privacy",
                         "dp_clipping_norm": 1.0,  # Gradient clipping norm
                         "dp_sensitivity": 1.0,  # Usually equals clipping_norm
-                        "dp_epsilon": 200.0,  # Privacy budget (higher = less privacy, better utility)
+                        "dp_epsilon": 50.0,  # Privacy budget (higher = less privacy, better utility)
                         "dp_delta": 1e-5,  # Failure probability
                         "dp_decay_factor": 0.95,  # For adaptive DP
                         "dp_min_epsilon": 10.0,  # Minimum epsilon for adaptive DP
@@ -195,9 +195,11 @@ class DifferentialPrivacyMixin:
         )()
 
         logger.info("🔧 Created default DP config with explicit parameters:")
-        logger.info(f"   dp_clipping_norm: {1.0}")
-        logger.info(f"   dp_sensitivity: {1.0}")
-        logger.info(f"   dp_epsilon: {200.0}")
-        logger.info(f"   dp_delta: {1e-5}")
+        logger.info(f"   dp_clipping_norm: {default_dp_config.fl.dp_clipping_norm}")
+        logger.info(f"   dp_sensitivity: {default_dp_config.fl.dp_sensitivity}")
+        logger.info(f"   dp_epsilon: {default_dp_config.fl.dp_epsilon}")
+        logger.info(f"   dp_delta: {default_dp_config.fl.dp_delta}")
+        logger.info(f"   dp_decay_factor: {default_dp_config.fl.dp_decay_factor}")
+        logger.info(f"   dp_min_epsilon: {default_dp_config.fl.dp_min_epsilon}")
 
         return default_dp_config

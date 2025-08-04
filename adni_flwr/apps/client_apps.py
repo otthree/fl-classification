@@ -260,14 +260,19 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
         adaptive_dp_mod = AdaptiveLocalDpMod(
             clipping_norm=1.0,  # Default value
             sensitivity=1.0,  # Default value
-            initial_epsilon=200.0,  # Default value - high epsilon for less noise
+            initial_epsilon=50.0,  # Default value - high epsilon for less noise
             delta=1e-5,  # Default value
             decay_factor=0.95,  # Default decay factor
             min_epsilon=10.0,  # Default minimum epsilon
         )
 
-        logger.info("🔧 Created AdaptiveLocalDpMod with default parameters")
-        logger.info("💡 For custom parameters, use create_adaptive_dp_client_app(config) with a config object")
+        logger.info("🔧 Created AdaptiveLocalDpMod with default parameters:")
+        logger.info(f"   clipping_norm: {adaptive_dp_mod.clipping_norm}")
+        logger.info(f"   sensitivity: {adaptive_dp_mod.sensitivity}")
+        logger.info(f"   initial_epsilon: {adaptive_dp_mod.initial_epsilon}")
+        logger.info(f"   delta: {adaptive_dp_mod.delta}")
+        logger.info(f"   decay_factor: {adaptive_dp_mod.decay_factor}")
+        logger.info(f"   min_epsilon: {adaptive_dp_mod.min_epsilon}")
         return adaptive_dp_mod
 
 
