@@ -1299,10 +1299,10 @@ class StrategyAwareClient(NumPyClient):
         wandb_run_id = config.get("wandb_run_id")
         if wandb_run_id and self.wandb_logger and not self.wandb_logger.run:
             logger.info(f"Client {self.client_id}: Received WandB run ID from server: {wandb_run_id}")
-            success = self.wandb_logger.join_wandb_run(wandb_run_id)
-            if success and hasattr(self.wandb_logger, "log_config"):
-                logger.info(f"Client {self.client_id}: Logging configuration to WandB after successful join")
-                self.wandb_logger.log_config()
+            # success = self.wandb_logger.join_wandb_run(wandb_run_id)
+            # if success and hasattr(self.wandb_logger, "log_config"):
+            #     logger.info(f"Client {self.client_id}: Logging configuration to WandB after successful join")
+            #     self.wandb_logger.log_config()
 
         # Get current round number from config
         current_round = config.get("server_round", self.current_round + 1)
@@ -1481,10 +1481,10 @@ class StrategyAwareClient(NumPyClient):
         wandb_run_id = config.get("wandb_run_id")
         if wandb_run_id and self.wandb_logger and not self.wandb_logger.run:
             logger.info(f"Client {self.client_id}: Received WandB run ID from server: {wandb_run_id}")
-            success = self.wandb_logger.join_wandb_run(wandb_run_id)
-            if success and hasattr(self.wandb_logger, "log_config"):
-                logger.info(f"Client {self.client_id}: Logging configuration to WandB after successful join")
-                self.wandb_logger.log_config()
+            # success = self.wandb_logger.join_wandb_run(wandb_run_id)
+            # if success and hasattr(self.wandb_logger, "log_config"):
+            #     logger.info(f"Client {self.client_id}: Logging configuration to WandB after successful join")
+            #     self.wandb_logger.log_config()
 
         # Get the current round number from the config
         current_round = config.get("server_round", 1)
