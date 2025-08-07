@@ -48,7 +48,7 @@ fl:
   strategy: "fedprox"          # FL aggregation strategy (options: "fedavg", "fedprox")
   evaluate_frequency: 5       # Clients will evaluate every 10 rounds instead of every round
   # FedProx-specific parameters
-  fedprox_mu: 0.1  # FedProx regularization parameter
+  fedprox_mu: 0.001  # FedProx regularization parameter
   # Multi-machine configuration for distributed FL
   multi_machine:
     # Server machine configuration
@@ -149,5 +149,5 @@ wandb:
   project: "fl-adni-classification"
   entity: "tin-hoang"
   tags: ["federated-learning", "fedprox", "rosanna"]
-  notes: "bs2"
+  notes: "mu=0.001"
   run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-fedprox-seed244"
