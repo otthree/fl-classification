@@ -295,6 +295,28 @@ class DifferentialPrivacyClient(ClientStrategyBase):
 
         logger.info(f"Client prepared for round {self.current_round} with LocalDpMod DP parameters")
 
+    def _update_client_model_with_compatibility_check(self, server_params: Parameters):
+        """Update client model with server parameters with compatibility checking.
+
+        This method provides compatibility checking when updating the client model
+        with parameters from the server.
+
+        Args:
+            server_params: Parameters from server
+        """
+        try:
+            # Convert parameters to numpy arrays safely
+            param_arrays = safe_parameters_to_ndarrays(server_params)
+
+            # Update model with server parameters
+            set_params(self.model, param_arrays)
+
+            logger.debug(f"Successfully updated client model with {len(param_arrays)} parameter arrays")
+
+        except Exception as e:
+            logger.error(f"Failed to update client model with server parameters: {e}")
+            raise RuntimeError(f"Model parameter update failed: {e}") from e
+
     def train_epoch(self, train_loader: DataLoader, epoch: int, total_epochs: int, **kwargs) -> Tuple[float, float]:
         """Train the model for one epoch with differential privacy via LocalDpMod.
 
