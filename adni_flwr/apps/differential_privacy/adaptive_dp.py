@@ -1,6 +1,7 @@
 """Adaptive differential privacy implementation with noise scaling."""
 
 import io
+import os
 from typing import Any, Optional
 
 import numpy as np
@@ -238,37 +239,148 @@ class AdaptiveLocalDpMod:
                 logger.debug("   Content does not have recognizable parameter structure")
 
         if parameters is None:
-            # If no parameters found, return as-is
-            logger.info(f"❌ No parameters found in response of type {type(response)}, skipping adaptive DP noise")
-            logger.debug(f"   Response dir: {[attr for attr in dir(response) if not attr.startswith('_')]}")
+            # If no parameters found, likely not a FitRes (e.g., EvaluateRes). Log benign debug and return.
+            message_hint = "unknown"
+            try:
+                if hasattr(response, "content") and response.content is not None:
+                    content = response.content
+                    metric_records = getattr(content, "metric_records", None)
+                    config_records = getattr(content, "config_records", None)
 
-            # Additional debugging for Message objects
+                    def _has_eval_keys(rec: Any) -> bool:
+                        try:
+                            return bool(rec) and any("evaluateres" in str(k) for k in rec.keys())
+                        except Exception:
+                            return False
+
+                    if _has_eval_keys(metric_records) or _has_eval_keys(config_records):
+                        message_hint = "evaluate"
+                    else:
+                        message_hint = "non-fit"
+            except Exception:
+                message_hint = "unknown"
+
+            logger.debug(
+                f"No parameters present for message type={type(response)} (hint={message_hint}); "
+                "skipping adaptive DP noise as expected."
+            )
+
+            # Additional debugging for Message objects (only at debug level)
+            logger.debug(f"   Response dir: {[attr for attr in dir(response) if not attr.startswith('_')]}")
             if hasattr(response, "content") and response.content is not None:
                 content = response.content
                 logger.debug(f"   Content type: {type(content)}")
                 logger.debug(f"   Content dir: {[attr for attr in dir(content) if not attr.startswith('_')]}")
                 if hasattr(content, "__dict__"):
                     logger.debug(f"   Content dict: {content.__dict__}")
-
-                # Try to inspect the content more deeply
                 try:
                     logger.debug(f"   Content str representation: {str(content)}")
                     logger.debug(f"   Content repr: {repr(content)}")
-
-                    # Check if it's a RecordSet or similar Flower structure
-                    if hasattr(content, "records"):
-                        logger.debug(f"   Content has records: {content.records}")
-                    if hasattr(content, "parameters"):
-                        logger.debug(f"   Content has parameters: {type(content.parameters)}")
-                    if hasattr(content, "fit_res"):
-                        logger.debug(f"   Content has fit_res: {type(content.fit_res)}")
-
                 except Exception as e:
                     logger.debug(f"   Error inspecting content: {e}")
 
             return response
 
-        self.round_count += 1
+        # Determine FL round index in a stateless manner if possible
+        def _extract_round_index(resp: Any, ctx: Any) -> Optional[int]:
+            try:
+                content = getattr(resp, "content", None)
+                # Prefer metric records, e.g., {'fitres.metrics': {'round': N}}
+                metric_records = getattr(content, "metric_records", None)
+                if isinstance(metric_records, dict):
+                    # Direct key
+                    fit_metrics = metric_records.get("fitres.metrics")
+                    if isinstance(fit_metrics, dict):
+                        for k in ("round", "current_round", "server_round"):
+                            if k in fit_metrics and isinstance(fit_metrics[k], (int, float)):
+                                return int(fit_metrics[k])
+                    # Search any metric record
+                    for _k, rec in metric_records.items():
+                        if isinstance(rec, dict):
+                            for k in ("round", "current_round", "server_round"):
+                                if k in rec and isinstance(rec[k], (int, float)):
+                                    return int(rec[k])
+
+                # Fallback: try config records, e.g., FitIns config
+                config_records = getattr(content, "config_records", None)
+                if isinstance(config_records, dict):
+                    # Some stacks include FitIns/EvaluateIns config in records
+                    for _k, rec in config_records.items():
+                        if isinstance(rec, dict):
+                            for k in ("round", "current_round", "server_round"):
+                                if k in rec and isinstance(rec[k], (int, float)):
+                                    return int(rec[k])
+
+                # As a last resort, some contexts provide round in ctx
+                # Try common attributes conservatively
+                for attr_name in ("round", "server_round", "current_round"):
+                    try:
+                        val = getattr(ctx, attr_name)
+                        if isinstance(val, (int, float)):
+                            return int(val)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            return None
+
+        def _extract_client_id(resp: Any, ctx: Any) -> Optional[str]:
+            try:
+                content = getattr(resp, "content", None)
+                # Look into metric records
+                metric_records = getattr(content, "metric_records", None)
+                if isinstance(metric_records, dict):
+                    fit_metrics = metric_records.get("fitres.metrics")
+                    if isinstance(fit_metrics, dict) and "client_id" in fit_metrics:
+                        return str(fit_metrics["client_id"]).strip()
+                    for _k, rec in metric_records.items():
+                        if isinstance(rec, dict) and "client_id" in rec:
+                            return str(rec["client_id"]).strip()
+                # Look into config records
+                config_records = getattr(content, "config_records", None)
+                if isinstance(config_records, dict):
+                    for _k, rec in config_records.items():
+                        if isinstance(rec, dict) and "client_id" in rec:
+                            return str(rec["client_id"]).strip()
+            except Exception:
+                pass
+            # Try context attributes
+            for attr_name in ("client_id", "partition_id"):
+                try:
+                    val = getattr(ctx, attr_name)
+                    if val is not None:
+                        return str(val).strip()
+                except Exception:
+                    continue
+            return None
+
+        def _env_round_key(resp: Any, ctx: Any) -> str:
+            client_id = _extract_client_id(resp, ctx) or "UNKNOWN"
+            return f"ADAPTIVE_DP_ROUND_{client_id}"
+
+        inferred_round = _extract_round_index(response, context)
+        env_key = _env_round_key(response, context)
+        # Read existing env-tracked round (process-local persistence across re-inits)
+        try:
+            env_round_val = int(os.environ.get(env_key, "0"))
+        except Exception:
+            env_round_val = 0
+
+        if inferred_round is not None and inferred_round >= 1:
+            self.round_count = inferred_round
+        elif env_round_val >= 1:
+            self.round_count = env_round_val + 1
+            logger.debug(f"Round fallback via env: {env_key} -> {self.round_count}")
+        else:
+            # Fall back to internal counter if nothing else is available
+            self.round_count += 1
+            logger.debug(f"Round fallback via internal counter -> {self.round_count}")
+
+        # Persist the chosen round into env for next instantiation within same process
+        try:
+            os.environ[env_key] = str(self.round_count)
+        except Exception:
+            pass
 
         # Update epsilon with exponential growth (less noise over time):
         # epsilon_t = initial_epsilon * (1/decay_factor)^(t-1)
