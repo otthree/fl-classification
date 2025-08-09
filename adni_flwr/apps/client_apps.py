@@ -12,6 +12,7 @@ from adni_flwr.apps.differential_privacy import AdaptiveLocalDpMod, OpacusDPClie
 from adni_flwr.common import StrategyDetector
 from adni_flwr.strategies import StrategyAwareClient, StrategyFactory
 from adni_flwr.utils import AppUtils
+from adni_flwr.utils.logging_config import setup_fl_logging
 from adni_flwr.utils.wandb_logger import FLClientWandbLogger
 
 
@@ -96,6 +97,9 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
                     context, config
                 )
 
+                # Setup FL logging with client-specific configuration
+                setup_fl_logging(client_id=client_id)
+
                 # Validate DP configuration
                 ClientAppFactory._validate_dp_config(loaded_config, f"client partition {partition_id} config")
 
@@ -172,6 +176,9 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
             try:
                 # Create common client components
                 device, partition_id, config, client_id = ClientAppFactory._create_client_context_components(context)
+
+                # Setup FL logging with client-specific configuration
+                setup_fl_logging(client_id=client_id)
 
                 # Validate strategy configuration
                 strategy_name = ClientAppFactory._validate_strategy_config(config)
@@ -260,7 +267,7 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
         adaptive_dp_mod = AdaptiveLocalDpMod(
             clipping_norm=1.0,  # Default value
             sensitivity=1.0,  # Default value
-            initial_epsilon=50.0,  # Default value - high epsilon for less noise
+            initial_epsilon=100.0,  # Default value - high epsilon for less noise
             delta=1e-5,  # Default value
             decay_factor=0.95,  # Default decay factor
             min_epsilon=10.0,  # Default minimum epsilon

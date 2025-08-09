@@ -4,6 +4,7 @@ This module provides centralized logging configuration using loguru for producti
 across the entire adni_flwr package.
 """
 
+import os
 import sys
 from pathlib import Path
 from typing import Optional, Union
@@ -79,15 +80,24 @@ def get_logger(name: str) -> Logger:
 def setup_fl_logging(
     client_id: Optional[int] = None,
     log_dir: Optional[Union[str, Path]] = None,
-    level: str = "INFO",
+    level: Optional[str] = None,
 ) -> None:
     """Setup logging specifically for federated learning components.
 
     Args:
         client_id: Client ID for client-specific logging
         log_dir: Directory for log files
-        level: Logging level
+        level: Logging level. If None, will use LOG_LEVEL environment variable or default to "INFO"
     """
+    # Get log level from environment variable if not provided
+    if level is None:
+        level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+    # Validate log level
+    valid_levels = {"TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"}
+    if level not in valid_levels:
+        logger.warning(f"Invalid log level '{level}', defaulting to 'INFO'. Valid levels: {valid_levels}")
+        level = "INFO"
     if log_dir is None:
         log_dir = Path("logs")
     else:

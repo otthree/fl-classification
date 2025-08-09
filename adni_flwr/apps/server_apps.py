@@ -12,6 +12,7 @@ from adni_flwr.common import StrategyDetector
 from adni_flwr.server_fn import safe_weighted_average
 from adni_flwr.strategies import StrategyFactory
 from adni_flwr.task import debug_model_architecture, get_params, load_model
+from adni_flwr.utils.logging_config import setup_fl_logging
 from adni_flwr.utils.wandb_logger import FLServerWandbLogger
 
 
@@ -40,6 +41,8 @@ class ServerAppFactory(BaseAppFactory, ServerAppFactoryMixin):
         @secagg_plus_app.main()
         def main(grid: Grid, context: Context):
             """Main entry point for SecAgg+ server app using proper Flower workflow pattern."""
+            # Setup FL logging for server (no client_id)
+            setup_fl_logging()
             logger.info("🔒 SecAgg+ Server - Starting workflow-based execution")
             ServerAppFactory._execute_secagg_plus_workflow(grid, context)
 
@@ -61,6 +64,9 @@ class ServerAppFactory(BaseAppFactory, ServerAppFactoryMixin):
             try:
                 # Load config
                 (config,) = ServerAppFactory._create_server_context_components(context)
+
+                # Setup FL logging for server (no client_id)
+                setup_fl_logging()
 
                 # Validate and get strategy
                 strategy_name = ServerAppFactory._validate_strategy_config(config)
@@ -112,6 +118,9 @@ class ServerAppFactory(BaseAppFactory, ServerAppFactoryMixin):
             try:
                 # Load config
                 (config,) = ServerAppFactory._create_server_context_components(context)
+
+                # Setup FL logging for server (no client_id)
+                setup_fl_logging()
 
                 # Validate strategy and check for SecAgg+
                 strategy_name = ServerAppFactory._validate_strategy_config(config)
