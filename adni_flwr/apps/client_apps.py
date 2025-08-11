@@ -267,7 +267,7 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
         adaptive_dp_mod = AdaptiveLocalDpMod(
             clipping_norm=1.0,  # Default value
             sensitivity=1.0,  # Default value
-            initial_epsilon=100.0,  # Default value - high epsilon for less noise
+            initial_epsilon=500.0,  # Default value - high epsilon for less noise
             delta=1e-5,  # Default value
             decay_factor=0.95,  # Default decay factor
             min_epsilon=10.0,  # Default minimum epsilon
