@@ -58,13 +58,11 @@ class AdaptiveLocalDpMod:
         self.max_epsilon = max_epsilon
         self.round_count = 0
 
-        logger.info("🔧 AdaptiveLocalDpMod initialized:")
-        logger.info(f"   initial_epsilon: {initial_epsilon}")
-        logger.info(f"   decay_factor: {decay_factor}")
-        logger.info(f"   min_epsilon: {self.min_epsilon}")
-        if self.max_epsilon is not None:
-            logger.info(f"   max_epsilon: {self.max_epsilon}")
-        logger.info(f"   base_sensitivity (from clipping_norm if >0): {self.base_sensitivity}")
+        logger.info(
+            f"AdaptiveLocalDpMod initialized | initial_epsilon={initial_epsilon} "
+            f"decay_factor={decay_factor} min_epsilon={self.min_epsilon} "
+            f"max_epsilon={self.max_epsilon} base_sensitivity={self.base_sensitivity}"
+        )
 
     @property
     def sensitivity(self) -> float:
@@ -94,13 +92,9 @@ class AdaptiveLocalDpMod:
         # Extract parameters from the response - handle different message types
         parameters = None
 
-        logger.debug(f"🔍 AdaptiveLocalDpMod: Response type: {type(response)}")
-        logger.debug(f"🔍 AdaptiveLocalDpMod: Response attributes: {dir(response)}")
-
         # Check if this is a FitRes with parameters
         if hasattr(response, "parameters") and response.parameters is not None:
             parameters = response.parameters
-            logger.debug("✅ Found parameters in response.parameters")
         # Check if this is a message with fit_res containing parameters
         elif (
             hasattr(response, "fit_res")
@@ -108,25 +102,20 @@ class AdaptiveLocalDpMod:
             and response.fit_res.parameters is not None
         ):
             parameters = response.fit_res.parameters
-            logger.debug("✅ Found parameters in response.fit_res.parameters")
         # Check if this is a tuple return from NumPyClient (parameters, num_examples, metrics)
         elif isinstance(response, tuple) and len(response) >= 1:
             # First element should be parameters
             potential_params = response[0]
             if isinstance(potential_params, (list, tuple)) and len(potential_params) > 0:
                 parameters = potential_params
-                logger.debug("✅ Found parameters in tuple response[0]")
                 # Check if response has a content attribute with parameters
         elif hasattr(response, "content") and response.content is not None:
             content = response.content
-            logger.debug(f"🔍 Content type: {type(content)}")
-            logger.debug(f"🔍 Content attributes: {dir(content)}")
 
             # Check if content is a RecordDict with parameters_records
             if hasattr(content, "parameters_records") and content.parameters_records is not None:
                 # Extract parameters from RecordDict
                 param_records = content.parameters_records
-                logger.debug(f"🔍 Found parameters_records: {param_records}")
 
                 # Check if it's a dict-like structure with fitres.parameters
                 if hasattr(param_records, "get"):
@@ -135,16 +124,9 @@ class AdaptiveLocalDpMod:
                         # Extract the parameter arrays from the fitres.parameters dict
                         param_list = []
                         param_keys = sorted([k for k in fitres_params.keys() if k.isdigit()], key=int)
-                        logger.debug(f"🔍 Parameter keys: {param_keys}")
 
                         for key in param_keys:
                             array_obj = fitres_params[key]
-                            logger.debug(f"🔍 Processing parameter {key}: {type(array_obj)}")
-                            logger.debug(
-                                f"🔍 Array attributes: {[attr for attr in dir(array_obj) if not attr.startswith('_')]}"
-                            )
-                            if hasattr(array_obj, "__dict__"):
-                                logger.debug(f"🔍 Array dict: {array_obj.__dict__}")
                             if hasattr(array_obj, "data"):
                                 # Convert the Array object to numpy array
                                 try:
@@ -153,9 +135,7 @@ class AdaptiveLocalDpMod:
                                         # This is numpy's native serialization format
                                         buffer = io.BytesIO(array_obj.data)
                                         param_array = np.load(buffer, allow_pickle=False)
-                                        logger.debug(
-                                            f"✅ Loaded parameter {key} using numpy format, shape={param_array.shape}"
-                                        )
+
                                     else:
                                         # Fallback: try raw bytes with explicit dtype and shape
                                         try:
@@ -174,41 +154,34 @@ class AdaptiveLocalDpMod:
                                                         logger.warning(f"Could not parse shape: {array_obj.shape}")
                                                 else:
                                                     param_array = param_array.reshape(array_obj.shape)
-                                            logger.debug(
-                                                f"✅ Loaded parameter {key} using frombuffer, shape={param_array.shape}"
-                                            )
+
                                         except Exception as e2:
-                                            logger.error(f"❌ Failed frombuffer approach: {e2}")
+                                            logger.error(f"Failed frombuffer approach: {e2}")
                                             raise
 
                                     param_list.append(param_array)
                                 except Exception as e:
-                                    logger.error(f"❌ Failed to extract parameter {key}: {e}")
+                                    logger.error(f"Failed to extract parameter {key}: {e}")
                                     # Try alternative approach
                                     try:
                                         param_array = np.frombuffer(array_obj.data, dtype=np.uint8)
-                                        logger.debug(f"   Raw data length: {len(param_array)}")
                                     except Exception as e2:
-                                        logger.error(f"❌ Could not read raw data: {e2}")
+                                        logger.error(f"Could not read raw data: {e2}")
 
                         if param_list:
                             parameters = param_list
-                            logger.debug(f"✅ Found {len(parameters)} parameters in RecordDict")
 
             # Check if content is a FitRes with parameters attribute
             elif hasattr(content, "parameters") and content.parameters is not None:
                 parameters = content.parameters
-                logger.debug("✅ Found parameters in response.content.parameters")
             # Check if content has fit_res attribute containing parameters
             elif hasattr(content, "fit_res") and hasattr(content.fit_res, "parameters"):
                 parameters = content.fit_res.parameters
-                logger.debug("✅ Found parameters in response.content.fit_res.parameters")
             # Check if content is a tuple (parameters, num_examples, metrics)
             elif isinstance(content, tuple) and len(content) >= 1:
                 potential_params = content[0]
                 if isinstance(potential_params, (list, tuple)) and len(potential_params) > 0:
                     parameters = potential_params
-                    logger.debug("✅ Found parameters in response.content tuple")
             # Try to access content as a record/dict-like structure
             elif hasattr(content, "__getitem__") or hasattr(content, "get"):
                 try:
@@ -227,16 +200,16 @@ class AdaptiveLocalDpMod:
                         if param_candidate is not None:
                             if hasattr(param_candidate, "parameters"):
                                 parameters = param_candidate.parameters
-                                logger.debug(f"✅ Found parameters in response.content[{key}].parameters")
+                                logger.debug(f"Found parameters in response.content[{key}].parameters")
                                 break
                             elif isinstance(param_candidate, (list, tuple)) and len(param_candidate) > 0:
                                 parameters = param_candidate
-                                logger.debug(f"✅ Found parameters in response.content[{key}]")
+                                logger.debug(f"Found parameters in response.content[{key}]")
                                 break
-                except Exception as e:
-                    logger.debug(f"   Failed to access content as dict/record: {e}")
+                except Exception:
+                    logger.exception("Failed to access parameters via dict-like content structure")
             else:
-                logger.debug("   Content does not have recognizable parameter structure")
+                pass
 
         if parameters is None:
             # If no parameters found, likely not a FitRes (e.g., EvaluateRes). Log benign debug and return.
@@ -258,27 +231,13 @@ class AdaptiveLocalDpMod:
                     else:
                         message_hint = "non-fit"
             except Exception:
+                logger.error(f"Failed to extract parameters from response: {response}")
                 message_hint = "unknown"
 
-            logger.debug(
-                f"No parameters present for message type={type(response)} (hint={message_hint}); "
-                "skipping adaptive DP noise as expected."
+            logger.warning(
+                "AdaptiveLocalDpMod: no parameters present (hint=%s); skipping adaptive DP noise.",
+                message_hint,
             )
-
-            # Additional debugging for Message objects (only at debug level)
-            logger.debug(f"   Response dir: {[attr for attr in dir(response) if not attr.startswith('_')]}")
-            if hasattr(response, "content") and response.content is not None:
-                content = response.content
-                logger.debug(f"   Content type: {type(content)}")
-                logger.debug(f"   Content dir: {[attr for attr in dir(content) if not attr.startswith('_')]}")
-                if hasattr(content, "__dict__"):
-                    logger.debug(f"   Content dict: {content.__dict__}")
-                try:
-                    logger.debug(f"   Content str representation: {str(content)}")
-                    logger.debug(f"   Content repr: {repr(content)}")
-                except Exception as e:
-                    logger.debug(f"   Error inspecting content: {e}")
-
             return response
 
         # Determine FL round index in a stateless manner if possible
@@ -319,9 +278,9 @@ class AdaptiveLocalDpMod:
                         if isinstance(val, (int, float)):
                             return int(val)
                     except Exception:
-                        pass
+                        logger.exception("Failed while inspecting content for parameter hint keys")
             except Exception:
-                pass
+                logger.exception("Unexpected error extracting round index from response/context")
             return None
 
         def _extract_client_id(resp: Any, ctx: Any) -> Optional[str]:
@@ -343,7 +302,7 @@ class AdaptiveLocalDpMod:
                         if isinstance(rec, dict) and "client_id" in rec:
                             return str(rec["client_id"]).strip()
             except Exception:
-                pass
+                logger.exception("Unexpected error extracting client id from response/context")
             # Try context attributes
             for attr_name in ("client_id", "partition_id"):
                 try:
@@ -370,17 +329,15 @@ class AdaptiveLocalDpMod:
             self.round_count = inferred_round
         elif env_round_val >= 1:
             self.round_count = env_round_val + 1
-            logger.debug(f"Round fallback via env: {env_key} -> {self.round_count}")
         else:
             # Fall back to internal counter if nothing else is available
             self.round_count += 1
-            logger.debug(f"Round fallback via internal counter -> {self.round_count}")
 
         # Persist the chosen round into env for next instantiation within same process
         try:
             os.environ[env_key] = str(self.round_count)
         except Exception:
-            pass
+            logger.exception("Failed to persist adaptive DP round into environment")
 
         # Update epsilon with exponential growth (less noise over time):
         # epsilon_t = initial_epsilon * (1/decay_factor)^(t-1)
@@ -424,12 +381,16 @@ class AdaptiveLocalDpMod:
 
             noisy_parameters.append(noisy_param.numpy())
 
-        logger.info(f"🔒 AdaptiveLocalDpMod Round {self.round_count}:")
-        logger.info(f"   current_epsilon: {self.current_epsilon:.4f}")
-        logger.info(f"   noise_scale: {noise_scale:.6f}")
-        logger.info(f"   param_norm: {total_param_norm:.6f}")
-        logger.info(f"   noise_norm: {total_noise_norm:.6f}")
-        logger.info(f"   noise/param_ratio: {total_noise_norm / max(total_param_norm, 1e-6):.4f}")
+        logger.info(
+            "AdaptiveLocalDpMod round=%d current_epsilon=%.4f noise_scale=%.6f param_norm=%.6f noise_norm=%.6f "
+            "noise_param_ratio=%.4f",
+            self.round_count,
+            self.current_epsilon,
+            noise_scale,
+            total_param_norm,
+            total_noise_norm,
+            total_noise_norm / max(total_param_norm, 1e-6),
+        )
 
         # Update the response with noisy parameters - handle different message types
         if hasattr(response, "parameters"):
@@ -465,21 +426,19 @@ class AdaptiveLocalDpMod:
                                     np.save(buffer, noisy_param, allow_pickle=False)
                                     array_obj.data = buffer.getvalue()
 
-                                    logger.debug(f"✅ Updated parameter {key} in RecordDict using numpy serialization")
                         updated = True
-                        logger.debug("✅ Updated all parameters in RecordDict")
             elif hasattr(content, "parameters"):
                 content.parameters = noisy_parameters
-                logger.debug("✅ Updated parameters in response.content.parameters")
+                logger.debug("Updated parameters in response.content.parameters")
                 updated = True
             elif hasattr(content, "fit_res") and hasattr(content.fit_res, "parameters"):
                 content.fit_res.parameters = noisy_parameters
-                logger.debug("✅ Updated parameters in response.content.fit_res.parameters")
+                logger.debug("Updated parameters in response.content.fit_res.parameters")
                 updated = True
             elif isinstance(content, tuple) and len(content) >= 1:
                 # Replace the first element (parameters) in the tuple
                 response.content = (noisy_parameters, *content[1:])
-                logger.debug("✅ Updated parameters in response.content tuple")
+                logger.debug("Updated parameters in response.content tuple")
                 updated = True
             # Try to update content as a record/dict-like structure
             elif hasattr(content, "__setitem__") or hasattr(content, "set"):
@@ -499,17 +458,17 @@ class AdaptiveLocalDpMod:
                         if param_candidate is not None:
                             if hasattr(param_candidate, "parameters"):
                                 param_candidate.parameters = noisy_parameters
-                                logger.debug(f"✅ Updated parameters in response.content[{key}].parameters")
+                                logger.debug(f"Updated parameters in response.content[{key}].parameters")
                                 updated = True
                                 break
                             elif isinstance(param_candidate, (list, tuple)):
                                 if hasattr(content, "__setitem__"):
                                     content[key] = noisy_parameters
-                                    logger.debug(f"✅ Updated parameters in response.content[{key}]")
+                                    logger.debug(f"Updated parameters in response.content[{key}]")
                                     updated = True
                                     break
-                except Exception as e:
-                    logger.debug(f"   Failed to update content as dict/record: {e}")
+                except Exception:
+                    logger.exception("Failed to update content as dict/record with noisy parameters")
 
             if not updated:
                 logger.warning(f"Could not update content parameters - content type: {type(content)}")
