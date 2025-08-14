@@ -26,15 +26,19 @@ def setup_logging(
     Args:
         level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_file: Optional path to log file. If None, only console logging is used.
-        serialize: Whether to serialize logs as JSON
-        rotation: When to rotate log files (e.g., "10 MB", "1 day")
-        retention: How long to keep old log files
-        compression: Compression format for rotated logs
+                  For FL applications, this should be None to avoid Ray serialization issues.
+        serialize: Whether to serialize logs as JSON (only applies to file logging)
+        rotation: When to rotate log files (only applies to file logging)
+        retention: How long to keep old log files (only applies to file logging)
+        compression: Compression format for rotated logs (only applies to file logging)
     """
+    # Check if we're already configured to avoid reconfiguration in Ray workers
+    if hasattr(logger, "_ray_configured"):
+        return
     # Remove default handler to avoid duplicate logs
     logger.remove()
 
-    # Add console handler with colored output
+    # Add console handler with colored output (always present)
     logger.add(
         sys.stderr,
         level=level,
@@ -47,7 +51,7 @@ def setup_logging(
         diagnose=True,
     )
 
-    # Add file handler if log_file is specified
+    # Add file handler if log_file is specified (not recommended for FL/Ray applications)
     if log_file:
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -63,6 +67,9 @@ def setup_logging(
             backtrace=True,
             diagnose=True,
         )
+
+    # Mark as configured to prevent reconfiguration
+    logger._ray_configured = True
 
 
 def get_logger(name: str) -> Logger:
@@ -82,13 +89,21 @@ def setup_fl_logging(
     log_dir: Optional[Union[str, Path]] = None,
     level: Optional[str] = None,
 ) -> None:
-    """Setup logging specifically for federated learning components.
+    """Setup console-only logging for federated learning components.
+
+    This function is Ray-compatible as it only uses console logging, avoiding
+    file handler serialization issues. File-based logging is handled by WandB.
 
     Args:
-        client_id: Client ID for client-specific logging
-        log_dir: Directory for log files
+        client_id: Client ID for client-specific logging (used for log formatting)
+        log_dir: Directory for log files (ignored - kept for API compatibility)
         level: Logging level. If None, will use LOG_LEVEL environment variable or default to "INFO"
     """
+    # Skip if already configured for this process/worker
+    config_key = f"_fl_logging_configured_{client_id}"
+    if hasattr(logger, config_key):
+        return
+
     # Get log level from environment variable if not provided
     if level is None:
         level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -98,24 +113,19 @@ def setup_fl_logging(
     if level not in valid_levels:
         logger.warning(f"Invalid log level '{level}', defaulting to 'INFO'. Valid levels: {valid_levels}")
         level = "INFO"
-    if log_dir is None:
-        log_dir = Path("logs")
-    else:
-        log_dir = Path(log_dir)
 
-    # Create log directory
-    log_dir.mkdir(parents=True, exist_ok=True)
+    # Console-only logging setup - Ray-compatible, no file handlers
+    try:
+        setup_logging(level=level, log_file=None)  # Console only
+        # Mark this specific configuration as complete
+        setattr(logger, config_key, True)
 
-    # Setup different log files for server and clients
-    if client_id is not None:
-        log_file = log_dir / f"client_{client_id}.log"
-    else:
-        log_file = log_dir / "server.log"
+        # Log the setup completion with client context
+        if client_id is not None:
+            logger.info(f"Console logging configured for FL Client {client_id} (level: {level})")
+        else:
+            logger.info(f"Console logging configured for FL Server (level: {level})")
 
-    setup_logging(
-        level=level,
-        log_file=log_file,
-        serialize=False,
-        rotation="50 MB",
-        retention="14 days",
-    )
+    except Exception as e:
+        print(f"ERROR: Console logging setup failed: {e}")
+        # Continue without custom logging setup
