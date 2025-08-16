@@ -235,8 +235,7 @@ class AdaptiveLocalDpMod:
                 message_hint = "unknown"
 
             logger.warning(
-                "AdaptiveLocalDpMod: no parameters present (hint=%s); skipping adaptive DP noise.",
-                message_hint,
+                f"AdaptiveLocalDpMod: no parameters present (hint={message_hint}); skipping adaptive DP noise."
             )
             return response
 
@@ -277,8 +276,11 @@ class AdaptiveLocalDpMod:
                         val = getattr(ctx, attr_name)
                         if isinstance(val, (int, float)):
                             return int(val)
+                    except AttributeError:
+                        # Expected case - attribute doesn't exist, continue to next
+                        continue
                     except Exception:
-                        logger.exception("Failed while inspecting content for parameter hint keys")
+                        logger.exception(f"Unexpected error while inspecting context attribute '{attr_name}'")
             except Exception:
                 logger.exception("Unexpected error extracting round index from response/context")
             return None
@@ -382,14 +384,10 @@ class AdaptiveLocalDpMod:
             noisy_parameters.append(noisy_param.numpy())
 
         logger.info(
-            "AdaptiveLocalDpMod round=%d current_epsilon=%.4f noise_scale=%.6f param_norm=%.6f noise_norm=%.6f "
-            "noise_param_ratio=%.4f",
-            self.round_count,
-            self.current_epsilon,
-            noise_scale,
-            total_param_norm,
-            total_noise_norm,
-            total_noise_norm / max(total_param_norm, 1e-6),
+            f"AdaptiveLocalDpMod round={self.round_count} "
+            f"current_epsilon={self.current_epsilon:.4f} noise_scale={noise_scale:.6f} "
+            f"param_norm={total_param_norm:.6f} noise_norm={total_noise_norm:.6f} "
+            f"noise_param_ratio={total_noise_norm / max(total_param_norm, 1e-6):.4f}"
         )
 
         # Update the response with noisy parameters - handle different message types
