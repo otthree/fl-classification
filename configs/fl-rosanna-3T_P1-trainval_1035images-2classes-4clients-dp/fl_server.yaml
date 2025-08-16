@@ -17,13 +17,14 @@ data:
   multiprocessing_context: "spawn"
 
 model:
-  name: "rosanna_cnn"
+  name: "rosanna_cnn_gn"
   num_classes: 2
   pretrained_checkpoint: null
   # Pretrained model specific parameters
   freeze_encoder: false  # Set to true for feature extraction only
   dropout: 0.1  # Dropout rate for regularization
   input_channels: 1  # Number of input channels
+  num_groups: 8  # Number of groups for GroupNorm (DP-friendly normalization)
 
 training:
   batch_size: 2
