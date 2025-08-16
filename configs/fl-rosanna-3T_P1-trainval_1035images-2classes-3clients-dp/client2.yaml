@@ -1,6 +1,6 @@
 data:
-  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
-  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
+  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_283images.csv"
+  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_3clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_63images.csv"
   img_dir: "data/ADNI/3T_bl_org_P1_20250603/3T_bl_org_MRI_1_NIfTI_removedDup_step3_skull_stripping"
   dataset_type: "normal"  # Options: "smartcache", "cache", "normal"
   classification_mode: "CN_AD"  # Options: "CN_MCI_AD" (3 classes), "CN_AD" (2 classes, where MCI is treated as CN)
@@ -15,20 +15,21 @@ data:
   multiprocessing_context: "spawn"  # Options: "spawn", "fork", "forkserver"
 
 model:
-  name: "rosanna_cnn"  # Using our secure federated CNN model
+  name: "rosanna_cnn_gn"  # Using GroupNorm version for better DP training compatibility
   num_classes: 2  # CN, MCI, AD - will be automatically adjusted based on classification_mode
   pretrained_checkpoint: null
   # Pretrained model specific parameters
   freeze_encoder: false  # Set to true for feature extraction only
   dropout: 0.1  # Dropout rate for regularization
   input_channels: 1  # Number of input channels
+  num_groups: 8  # Number of groups for GroupNorm (DP-friendly normalization)
 
 training:
   batch_size: 2
   learning_rate: 0.0001
   weight_decay: 0.01  # 1e-2
   num_workers: 2
-  seed: 244
+  seed: 1
   output_dir: "outputs"
   mixed_precision: false
   visualize: false
@@ -44,9 +45,9 @@ wandb:
   use_wandb: true
   project: "fl-adni-classification"
   entity: "tin-hoang"
-  tags: ["federated-learning", "differential_privacy", "rosanna"]
-  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp-seed244"
-  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-dp-seed244"
+  tags: ["federated-learning", "differential_privacy", "rosanna_gn"]
+  notes: "adaptive_dp, initial_epsilon=500"
+  run_name: "fl-rosanna_gn-3T_P1-trainval_1035images-2classes-3clients-dp-seed01"
 
 # FL-specific settings
 fl:
@@ -56,8 +57,8 @@ fl:
   evaluate_frequency: 5  # Evaluate every 10 rounds (can be overridden by server config)
   strategy: "differential_privacy"
 
-  # Differential Privacy specific parameters
-  dp_clipping_norm: 1.0
+  # Optimized Differential Privacy parameters for small dataset
+  dp_clipping_norm: 1.0       # Keep clipping norm at 5.0
   dp_sensitivity: 1.0
-  dp_epsilon: 200.0
-  dp_delta: 1e-5
+  dp_epsilon: 500.0             # Privacy budget - conservative but allows convergence
+  dp_delta: 1e-5              # Standard delta value for (ε,δ)-DP
