@@ -239,6 +239,7 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
         delta = float(config.fl.dp_delta)
         decay_factor = getattr(config.fl, "dp_decay_factor", 0.95)
         min_epsilon = getattr(config.fl, "dp_min_epsilon", None)
+        use_gaussian_mechanism = getattr(config.fl, "dp_use_gaussian_mechanism", True)
 
         logger.info("🔧 Creating AdaptiveLocalDpMod with config parameters:")
         logger.info(f"   clipping_norm: {clipping_norm}")
@@ -247,6 +248,7 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
         logger.info(f"   delta: {delta}")
         logger.info(f"   decay_factor: {decay_factor}")
         logger.info(f"   min_epsilon: {min_epsilon}")
+        logger.info(f"   use_gaussian_mechanism: {use_gaussian_mechanism}")
 
         return AdaptiveLocalDpMod(
             clipping_norm=clipping_norm,
@@ -267,7 +269,7 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
         adaptive_dp_mod = AdaptiveLocalDpMod(
             clipping_norm=1.0,  # Default value
             sensitivity=1.0,  # Default value
-            initial_epsilon=500.0,  # Default value - high epsilon for less noise
+            initial_epsilon=1000.0,  # Default value - high epsilon for less noise
             delta=1e-5,  # Default value
             decay_factor=0.95,  # Default decay factor
             min_epsilon=10.0,  # Default minimum epsilon

@@ -1,6 +1,7 @@
 """Adaptive differential privacy implementation with noise scaling."""
 
 import io
+import math
 import os
 from typing import Any, Optional
 
@@ -16,6 +17,7 @@ class AdaptiveLocalDpMod:
     1. Reducing noise magnitude as training progresses (epsilon grows over rounds)
     2. Scaling noise based on per-tensor statistics (std-based, capped)
     3. Using an exponential growth schedule for epsilon (inverse of ``decay_factor``)
+    4. Supporting both Gaussian mechanism (ε,δ)-DP and Laplace mechanism (ε,0)-DP
     """
 
     def __init__(
@@ -27,6 +29,7 @@ class AdaptiveLocalDpMod:
         decay_factor: float = 0.95,
         min_epsilon: Optional[float] = None,
         max_epsilon: Optional[float] = None,
+        use_gaussian_mechanism: bool = True,
     ):
         """Initialize adaptive differential privacy mod.
 
@@ -38,6 +41,8 @@ class AdaptiveLocalDpMod:
             decay_factor: Exponential decay factor used inversely to grow epsilon per round
             min_epsilon: Minimum epsilon value (defaults to 10% of initial)
             max_epsilon: Optional cap on epsilon growth (no cap if None)
+            use_gaussian_mechanism: If True, uses proper Gaussian mechanism with delta scaling;
+                                  if False, uses Laplace mechanism scaling (legacy behavior)
         """
         self.clipping_norm = float(clipping_norm)
         # Derive sensitivity from clipping norm if available, aligning with DP-SGD
@@ -56,12 +61,14 @@ class AdaptiveLocalDpMod:
         self.decay_factor = decay_factor
         self.min_epsilon = min_epsilon or initial_epsilon * 0.1  # Minimum 10% of initial
         self.max_epsilon = max_epsilon
+        self.use_gaussian_mechanism = use_gaussian_mechanism
         self.round_count = 0
 
         logger.info(
             f"AdaptiveLocalDpMod initialized | initial_epsilon={initial_epsilon} "
             f"decay_factor={decay_factor} min_epsilon={self.min_epsilon} "
-            f"max_epsilon={self.max_epsilon} base_sensitivity={self.base_sensitivity}"
+            f"max_epsilon={self.max_epsilon} base_sensitivity={self.base_sensitivity} "
+            f"use_gaussian_mechanism={use_gaussian_mechanism}"
         )
 
     @property
@@ -350,8 +357,15 @@ class AdaptiveLocalDpMod:
         # Respect the minimum epsilon lower bound
         self.current_epsilon = max(grown_epsilon, self.min_epsilon)
 
-        # Calculate noise scale
-        noise_scale = self.base_sensitivity / self.current_epsilon
+        # Calculate noise scale based on mechanism type
+        if self.use_gaussian_mechanism:
+            # Gaussian mechanism: σ = (sensitivity/ε) × √(2×ln(1.25/δ)) for (ε,δ)-DP
+            noise_scale = (self.base_sensitivity / self.current_epsilon) * math.sqrt(2 * math.log(1.25 / self.delta))
+            mechanism_type = "Gaussian"
+        else:
+            # Laplace mechanism scaling: σ = sensitivity/ε for (ε,0)-DP
+            noise_scale = self.base_sensitivity / self.current_epsilon
+            mechanism_type = "Laplace-scaled"
 
         # Two-pass adaptive scaling using per-tensor std, capped in [min_scale, 1.0]
         # This meaningfully reduces noise for low-variance tensors while avoiding amplification beyond base noise.
@@ -384,7 +398,7 @@ class AdaptiveLocalDpMod:
             noisy_parameters.append(noisy_param.numpy())
 
         logger.info(
-            f"AdaptiveLocalDpMod round={self.round_count} "
+            f"AdaptiveLocalDpMod round={self.round_count} mechanism={mechanism_type} "
             f"current_epsilon={self.current_epsilon:.4f} noise_scale={noise_scale:.6f} "
             f"param_norm={total_param_norm:.6f} noise_norm={total_noise_norm:.6f} "
             f"noise_param_ratio={total_noise_norm / max(total_param_norm, 1e-6):.4f}"
