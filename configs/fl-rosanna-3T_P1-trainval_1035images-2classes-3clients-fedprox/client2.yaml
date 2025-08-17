@@ -45,7 +45,7 @@ wandb:
   project: "fl-adni-classification"
   entity: "tin-hoang"
   tags: ["federated-learning", "fedprox", "rosanna"]
-  notes: "mu=0.001"
+  notes: "mu=0.00001"
   run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-3clients-fedprox-seed244"
 
 # FL-specific settings
@@ -56,4 +56,4 @@ fl:
   evaluate_frequency: 5  # Evaluate every 10 rounds (can be overridden by server config)
   strategy: "fedprox"          # FL aggregation strategy (options: "fedavg", "fedprox")
   # FedProx-specific parameters
-  fedprox_mu: 0.001  # FedProx regularization parameter
+  fedprox_mu: 0.00001  # FedProx regularization parameter
