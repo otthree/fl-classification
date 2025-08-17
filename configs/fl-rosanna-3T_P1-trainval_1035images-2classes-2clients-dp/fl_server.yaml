@@ -3,8 +3,8 @@
 # Use the same data configuration as clients for consistency
 # (though server typically doesn't load data)
 data:
-  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_2clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
-  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_2clients_seed42/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
+  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_2clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_train_847images.csv"
+  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_2clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_all_val_188images.csv"
   img_dir: "data/ADNI/3T_bl_org_P1_20250603/3T_bl_org_MRI_1_NIfTI_removedDup_step3_skull_stripping"
   dataset_type: "normal"
   classification_mode: "CN_AD"
@@ -30,7 +30,7 @@ training:
   batch_size: 2
   learning_rate: 0.0001
   weight_decay: 0.01
-  seed: 42
+  seed: 1
   num_workers: 2
   num_epochs: 1
   output_dir: "outputs"  # Checkpoints will be saved in {output_dir}/checkpoints/
@@ -54,6 +54,7 @@ fl:
   dp_sensitivity: 1.0
   dp_epsilon: 500.0             # Privacy budget - conservative but allows convergence
   dp_delta: 1e-5              # Standard delta value for (ε,δ)-DP
+  dp_use_gaussian_mechanism: true  # Use Gaussian mechanism for proper (ε,δ)-DP
 
   # Multi-machine configuration for distributed FL
   multi_machine:
@@ -137,4 +138,4 @@ wandb:
   entity: "tin-hoang"
   tags: ["federated-learning", "differential_privacy", "rosanna_gn"]
   notes: "adaptive_dp, initial_epsilon=500"
-  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-2clients-dp-seed42"
+  run_name: "fl-rosanna_gn-3T_P1-trainval_1035images-2classes-2clients-dp-seed01"

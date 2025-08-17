@@ -262,6 +262,7 @@ class Config:
             "dp_sensitivity": self.fl.dp_sensitivity,
             "dp_epsilon": self.fl.dp_epsilon,
             "dp_delta": self.fl.dp_delta,
+            "dp_use_gaussian_mechanism": self.fl.dp_use_gaussian_mechanism,
             # SecAgg+ (real secure aggregation) parameters
             "secagg_num_shares": self.fl.secagg_num_shares,
             "secagg_reconstruction_threshold": self.fl.secagg_reconstruction_threshold,

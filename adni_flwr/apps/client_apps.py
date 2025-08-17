@@ -257,6 +257,7 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
             delta=delta,
             decay_factor=decay_factor,
             min_epsilon=min_epsilon,
+            use_gaussian_mechanism=use_gaussian_mechanism,
         )
 
     @staticmethod

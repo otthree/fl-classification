@@ -179,6 +179,15 @@ class ConfigLoader:
                 f"Error: {e}"
             ) from e
 
+        # Validate optional boolean parameter
+        if hasattr(config.fl, "dp_use_gaussian_mechanism"):
+            use_gaussian = config.fl.dp_use_gaussian_mechanism
+            if not isinstance(use_gaussian, bool):
+                raise ValueError(
+                    f"dp_use_gaussian_mechanism in {config_description} must be boolean, "
+                    f"got: {use_gaussian} (type: {type(use_gaussian)})"
+                )
+
         # Validate parameter ranges
         if clipping_norm <= 0:
             raise ValueError(f"dp_clipping_norm must be positive, got: {clipping_norm}")

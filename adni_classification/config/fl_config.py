@@ -119,6 +119,7 @@ class FLConfig:
     dp_sensitivity: float = 1.0  # Sensitivity parameter for LocalDpMod (typically equals clipping_norm)
     dp_epsilon: float = 1.0  # Privacy budget parameter for LocalDpMod
     dp_delta: float = 1e-5  # Privacy delta parameter for LocalDpMod
+    dp_use_gaussian_mechanism: bool = True  # Use Gaussian mechanism for (ε,δ)-DP; False for Laplace scaling
 
     # SecAgg+ (real secure aggregation) specific parameters
     secagg_num_shares: int = 3  # Number of secret shares for each client

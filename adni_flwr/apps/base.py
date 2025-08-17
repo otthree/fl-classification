@@ -189,6 +189,7 @@ class DifferentialPrivacyMixin:
                         "dp_delta": 1e-5,  # Failure probability
                         "dp_decay_factor": 0.95,  # For adaptive DP
                         "dp_min_epsilon": 10.0,  # Minimum epsilon for adaptive DP
+                        "dp_use_gaussian_mechanism": True,  # Use Gaussian mechanism for (ε,δ)-DP
                     },
                 )()
             },
