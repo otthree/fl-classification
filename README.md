@@ -2,15 +2,15 @@
 
 <div align="center">
 
-[![GitHub views](https://komarev.com/ghpvc/?username=Tin-Hoang&repo=fl-adni-classification&color=brightgreen&label=Views)](https://github.com/Tin-Hoang/fl-adni-classification)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-blue.svg)](https://pytorch.org/)
-[![Flower](https://img.shields.io/badge/Flower-FL-yellow.svg)](https://flower.dev/)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![MONAI](https://img.shields.io/badge/MONAI-Medical%20AI-purple.svg)](https://monai.io/)
-[![Functional Tests](https://github.com/Tin-Hoang/fl-adni-classification/workflows/Functional%20Tests/badge.svg)](https://github.com/Tin-Hoang/fl-adni-classification/actions/workflows/functional_test.yml)
-[![GitHub stars](https://img.shields.io/github/stars/Tin-Hoang/fl-adni-classification?style=social)](https://github.com/Tin-Hoang/fl-adni-classification/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Tin-Hoang/fl-adni-classification?style=social)](https://github.com/Tin-Hoang/fl-adni-classification/network/members)
+[![GitHub views](https://komarev.com/ghpvc/?username=Tin-Hoang&repo=fl-adni-classification&color=brightgreen&label=Views&style=flat-square)](https://github.com/Tin-Hoang/fl-adni-classification)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-blue.svg?style=flat-square)](https://pytorch.org/)
+[![Flower](https://img.shields.io/badge/Flower-FL-yellow.svg?style=flat-square)](https://flower.dev/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json&style=flat-square)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square)](https://github.com/astral-sh/ruff)
+[![MONAI](https://img.shields.io/badge/MONAI-Medical%20AI-purple.svg?style=flat-square)](https://monai.io/)
+[![Functional Tests](https://github.com/Tin-Hoang/fl-adni-classification/workflows/Functional%20Tests/badge.svg?style=flat-square)](https://github.com/Tin-Hoang/fl-adni-classification/actions/workflows/functional_test.yml)
+[![GitHub stars](https://img.shields.io/github/stars/Tin-Hoang/fl-adni-classification?style=flat-square)](https://github.com/Tin-Hoang/fl-adni-classification/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Tin-Hoang/fl-adni-classification?style=flat-square)](https://github.com/Tin-Hoang/fl-adni-classification/network/members)
 
 </div>
 
