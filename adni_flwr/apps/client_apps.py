@@ -274,6 +274,7 @@ class ClientAppFactory(BaseAppFactory, ClientAppFactoryMixin, DifferentialPrivac
             delta=1e-5,  # Default value
             decay_factor=0.95,  # Default decay factor
             min_epsilon=10.0,  # Default minimum epsilon
+            use_gaussian_mechanism=False,  # Default value
         )
 
         logger.info("🔧 Created AdaptiveLocalDpMod with default parameters:")
