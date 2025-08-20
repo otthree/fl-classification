@@ -754,9 +754,9 @@ Note: Run this script in your own tmux session if you want session persistence.
     # Load configuration
     try:
         print(f"📄 Loading configuration from {args.config_file}...")
-        from multi_config import get_clients_config_dict, get_server_config_dict, load_config_from_yaml
+        from adni_classification.config.config import Config
 
-        config = load_config_from_yaml(args.config_file)
+        config = Config.from_yaml(args.config_file)
 
         # For local simulation, always use the current working directory
         project_dir = os.getcwd()
@@ -774,8 +774,8 @@ Note: Run this script in your own tmux session if you want session persistence.
         return
 
     # Convert to dictionary format for compatibility with existing runner
-    server_config = get_server_config_dict(config)
-    clients_config = get_clients_config_dict(config)
+    server_config = config.fl.multi_machine.get_server_config_dict() if config.fl.multi_machine else {}
+    clients_config = config.fl.multi_machine.get_clients_config_dict() if config.fl.multi_machine else []
 
     if not server_config:
         print("❌ No server configuration found!")
