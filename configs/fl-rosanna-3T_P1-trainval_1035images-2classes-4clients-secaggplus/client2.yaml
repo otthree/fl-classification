@@ -1,6 +1,6 @@
 data:
-  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
-  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed244/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_47images.csv"
+  train_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_train_212images.csv"
+  val_csv_path: "data/ADNI/LABELS/3T_bl_org_trainval_1035images_4clients_seed01/3T_bl_org_MRI_UniqueSID_trainval_1035images_fullmetadata_client_2_val_47images.csv"
   img_dir: "data/ADNI/3T_bl_org_P1_20250603/3T_bl_org_MRI_1_NIfTI_removedDup_step3_skull_stripping"
   dataset_type: "normal"  # Options: "smartcache", "cache", "normal"
   classification_mode: "CN_AD"  # Options: "CN_MCI_AD" (3 classes), "CN_AD" (2 classes, where MCI is treated as CN)
@@ -28,7 +28,7 @@ training:
   learning_rate: 0.0001
   weight_decay: 0.01  # 1e-2
   num_workers: 2
-  seed: 244
+  seed: 1
   output_dir: "outputs"
   mixed_precision: false
   visualize: false
@@ -45,8 +45,8 @@ wandb:
   project: "fl-adni-classification"
   entity: "tin-hoang"
   tags: ["federated-learning", "secaggplus", "rosanna"]
-  notes: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus-seed244"
-  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus-seed244"
+  notes: "quantization_range=2^22"
+  run_name: "fl-rosanna-3T_P1-trainval_1035images-2classes-4clients-secaggplus-seed01"
 
 # FL-specific settings
 fl:
@@ -57,8 +57,8 @@ fl:
   strategy: "secagg+"  # FL aggregation strategy using real SecAgg+ (cryptographic secure aggregation)
 
   # SecAgg+ (Real Secure Aggregation) specific parameters - OPTIMIZED for 3-client CNN
-  secagg_num_shares: 3                    # Minimum for 3 clients (40% reduction from 5 shares)
-  secagg_reconstruction_threshold: 2      # Allows 1 client dropout tolerance (was 0 tolerance before)
+  secagg_num_shares: 4                    # Minimum for 3 clients (40% reduction from 5 shares)
+  secagg_reconstruction_threshold: 3      # Allows 1 client dropout tolerance (was 0 tolerance before)
   secagg_max_weight: 1000.0               # default
   secagg_timeout: 300.0                  # 5 minutes for training + crypto operations (was 120.0)
   secagg_clipping_range: 8.0             # default
