@@ -1462,6 +1462,7 @@ def main():
                 "true_labels": true_labels.tolist(),
                 "predicted_labels": predicted_labels.tolist(),
                 "predicted_probabilities": predicted_probs.tolist(),
+                "image_paths": image_paths,
             }
         }
         all_results.append(fold_results)
@@ -1480,6 +1481,47 @@ def main():
             save_predictions_csv(
                 image_paths, true_labels, predicted_labels, predicted_probs,
                 args.classification_mode, predictions_csv_path
+            )
+
+            # Generate per-fold visualizations
+            if args.classification_mode == "CN_AD":
+                class_names = ["CN", "AD"]
+            else:
+                class_names = ["CN", "MCI", "AD"]
+
+            # Confusion matrix (raw)
+            cm_path_fold = os.path.join(fold_dir, "confusion_matrix.png")
+            cm_fig_fold = plot_confusion_matrix(
+                y_true=true_labels,
+                y_pred=predicted_labels,
+                class_names=class_names,
+                normalize=False,
+                save_path=cm_path_fold,
+                title=f"Fold {i+1} Confusion Matrix"
+            )
+            plt.close(cm_fig_fold)
+
+            # Confusion matrix (normalized)
+            cm_norm_path_fold = os.path.join(fold_dir, "confusion_matrix_normalized.png")
+            cm_norm_fig_fold = plot_confusion_matrix(
+                y_true=true_labels,
+                y_pred=predicted_labels,
+                class_names=class_names,
+                normalize=True,
+                save_path=cm_norm_path_fold,
+                title=f"Fold {i+1} Confusion Matrix (Normalized)"
+            )
+            plt.close(cm_norm_fig_fold)
+
+            # ROC curves
+            roc_path_fold = os.path.join(fold_dir, "roc_curves.png")
+            plot_roc_curves(true_labels, predicted_probs, args.classification_mode, roc_path_fold)
+
+            # Confidence histogram
+            conf_hist_path_fold = os.path.join(fold_dir, "confidence_histogram.png")
+            plot_confidence_histogram(
+                predicted_probs, predicted_labels, true_labels,
+                args.classification_mode, conf_hist_path_fold
             )
 
         # Clean up model to free memory
@@ -1659,11 +1701,95 @@ def main():
                 f.write(f"  F1 Weighted: {fold_result.get('f1_weighted', 0.0):.4f}\n")
                 f.write("\n")
 
+        # Create aggregated (ensemble) visualizations across folds
+        try:
+            # Determine class names
+            if args.classification_mode == "CN_AD":
+                class_names = ["CN", "AD"]
+            else:
+                class_names = ["CN", "MCI", "AD"]
+
+            # Collect predictions across folds
+            probs_list = [
+                np.array(fr["predictions"]["predicted_probabilities"]) for fr in all_results
+            ]
+            labels_list = [
+                np.array(fr["predictions"]["true_labels"]) for fr in all_results
+            ]
+
+            # Sanity check: ensure all true labels are identical across folds
+            true_labels_agg = labels_list[0]
+            for tl in labels_list[1:]:
+                if tl.shape != true_labels_agg.shape or not np.array_equal(tl, true_labels_agg):
+                    print("Warning: True labels differ across folds. Aggregated visualizations may be misaligned.")
+                    break
+
+            # Ensemble probabilities by averaging across folds
+            stacked_probs = np.stack(probs_list, axis=0)  # [F, N, C]
+            ens_probs = np.mean(stacked_probs, axis=0)    # [N, C]
+            ens_preds = np.argmax(ens_probs, axis=1)
+
+            # Paths for aggregated visuals
+            cm_path_cv = os.path.join(args.output_dir, "cv_confusion_matrix.png")
+            cm_norm_path_cv = os.path.join(args.output_dir, "cv_confusion_matrix_normalized.png")
+            roc_path_cv = os.path.join(args.output_dir, "cv_roc_curves.png")
+            conf_hist_path_cv = os.path.join(args.output_dir, "cv_confidence_histogram.png")
+
+            # Confusion matrices (aggregated via ensemble predictions)
+            cm_fig_cv = plot_confusion_matrix(
+                y_true=true_labels_agg,
+                y_pred=ens_preds,
+                class_names=class_names,
+                normalize=False,
+                save_path=cm_path_cv,
+                title="Cross-Validation Confusion Matrix (Ensemble)"
+            )
+            plt.close(cm_fig_cv)
+
+            cm_norm_fig_cv = plot_confusion_matrix(
+                y_true=true_labels_agg,
+                y_pred=ens_preds,
+                class_names=class_names,
+                normalize=True,
+                save_path=cm_norm_path_cv,
+                title="Cross-Validation Confusion Matrix (Ensemble, Normalized)"
+            )
+            plt.close(cm_norm_fig_cv)
+
+            # ROC curves (aggregated via ensemble probabilities)
+            plot_roc_curves(true_labels_agg, ens_probs, args.classification_mode, roc_path_cv)
+
+            # Confidence histogram (aggregated via ensemble)
+            plot_confidence_histogram(
+                ens_probs, ens_preds, true_labels_agg,
+                args.classification_mode, conf_hist_path_cv
+            )
+
+            # Save aggregated detailed predictions CSV (ensemble)
+            # Use image paths from the first fold when available
+            image_paths_first = all_results[0]["predictions"].get("image_paths", [f"image_{i}" for i in range(len(true_labels_agg))])
+            predictions_csv_path_cv = os.path.join(args.output_dir, "predictions_detailed_ensemble.csv")
+            save_predictions_csv(
+                image_paths_first,
+                true_labels_agg,
+                ens_preds,
+                ens_probs,
+                args.classification_mode,
+                predictions_csv_path_cv,
+            )
+        except Exception as e:
+            print(f"Error generating aggregated visualizations: {e}")
+
         print(f"\nCross-validation evaluation completed! Results saved to: {args.output_dir}")
         print(f"Generated files:")
         print(f"  - cv_summary.json")
         print(f"  - cv_summary_table.csv")
         print(f"  - cv_report.txt")
+        print(f"  - cv_confusion_matrix.png")
+        print(f"  - cv_confusion_matrix_normalized.png")
+        print(f"  - cv_roc_curves.png")
+        print(f"  - cv_confidence_histogram.png")
+        print(f"  - predictions_detailed_ensemble.csv")
         print(f"  - fold_1/ to fold_{len(checkpoint_paths)}/ (individual fold results)")
 
     # Visualize predictions if requested (only for single checkpoint or last fold)
