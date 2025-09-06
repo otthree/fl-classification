@@ -310,10 +310,10 @@ class TestFLConfig:
         assert config.dp_delta == 1e-5
         assert config.secagg_num_shares == 3
         assert config.secagg_reconstruction_threshold == 3
-        assert config.secagg_max_weight == 16777216
+        assert config.secagg_max_weight == 1000.0
         assert config.secagg_timeout == 30.0
         assert config.secagg_clipping_range == 1.0
-        assert config.secagg_quantization_range == 1048576
+        assert config.secagg_quantization_range == 4194304
         assert config.client_id is None
         assert config.multi_machine is None
 
