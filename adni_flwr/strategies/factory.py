@@ -151,10 +151,10 @@ class StrategyFactory:
             # SecAgg+ parameters
             params.setdefault("num_shares", getattr(config.fl, "secagg_num_shares", 3))
             params.setdefault("reconstruction_threshold", getattr(config.fl, "secagg_reconstruction_threshold", 3))
-            params.setdefault("max_weight", getattr(config.fl, "secagg_max_weight", 16777216))
+            params.setdefault("max_weight", getattr(config.fl, "secagg_max_weight", 1000.0))
             params.setdefault("timeout", getattr(config.fl, "secagg_timeout", None))
             params.setdefault("clipping_range", getattr(config.fl, "secagg_clipping_range", 1.0))
-            params.setdefault("quantization_range", getattr(config.fl, "secagg_quantization_range", 2**20))
+            params.setdefault("quantization_range", getattr(config.fl, "secagg_quantization_range", 2**22))
 
         return params
 
@@ -294,10 +294,10 @@ class StrategyConfigValidator:
         """
         num_shares = getattr(config.fl, "secagg_num_shares", 3)
         reconstruction_threshold = getattr(config.fl, "secagg_reconstruction_threshold", 3)
-        max_weight = getattr(config.fl, "secagg_max_weight", 16777216)
+        max_weight = getattr(config.fl, "secagg_max_weight", 1000.0)
         timeout = getattr(config.fl, "secagg_timeout", None)
         clipping_range = getattr(config.fl, "secagg_clipping_range", 1.0)
-        quantization_range = getattr(config.fl, "secagg_quantization_range", 2**20)
+        quantization_range = getattr(config.fl, "secagg_quantization_range", 2**22)
 
         if not isinstance(num_shares, (int, float)) or num_shares < 0:
             raise ValueError(f"SecAgg+ num_shares must be a non-negative number, got: {num_shares}")
