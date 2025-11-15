@@ -387,12 +387,18 @@ Images should be organized in the following structure
 
 ## ADNI MRI Preprocessing
 
-The project includes a comprehensive MRI preprocessing pipeline that automates:
+The project includes a comprehensive MRI preprocessing pipeline that automates the standardization of raw ADNI MRI scans through three critical steps:
 1. Resampling to 1mm isotropic spacing
 2. Registration to a standard template (ICBM152)
 3. Skull stripping using FSL BET
 
-The preprocessing script includes advanced features such as resume functionality, directory filtering, progress tracking, and robust error handling.
+This pipeline ensures consistent spatial normalization and brain extraction across all images, which is essential for reliable model training and cross-institutional data sharing in federated learning scenarios.
+
+<p align="center">
+  <img src="docs/images/adni-preprocess.png" alt="ADNI MRI Preprocessing Pipeline" width="85%" style="padding: 10px; background-color: white; border: 1px solid #ddd;"/>
+  <br>
+  <em>Three-stage MRI preprocessing pipeline: resampling, registration to MNI template, and skull stripping</em>
+</p>
 
 📖 **For complete preprocessing documentation, see [docs/MRI_PREPROCESSING.md](docs/MRI_PREPROCESSING.md)**
 

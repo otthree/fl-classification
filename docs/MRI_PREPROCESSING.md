@@ -4,11 +4,19 @@ This document provides comprehensive documentation for the ADNI MRI preprocessin
 
 ## Overview
 
-The preprocessing script automates the standard preprocessing pipeline for ADNI MRI images:
+The preprocessing script automates the standard preprocessing pipeline for ADNI MRI images, transforming raw MRI scans into standardized, analysis-ready brain volumes:
 
 1. **Resampling** to 1mm isotropic spacing
 2. **Registration** to a standard template (ICBM152)
 3. **Skull stripping** using FSL BET
+
+<p align="center">
+  <img src="images/adni-preprocess.png" alt="ADNI MRI Preprocessing Pipeline" width="85%" style="padding: 10px; background-color: white; border: 1px solid #ddd;"/>
+  <br>
+  <em>Three-stage MRI preprocessing pipeline: resampling, registration to MNI template, and skull stripping</em>
+</p>
+
+This standardization pipeline ensures that all MRI scans are in the same coordinate space with consistent voxel dimensions, enabling reliable downstream analysis and model training. The skull stripping step removes non-brain tissue, focusing the analysis on relevant neural structures.
 
 The script includes advanced features such as resume functionality, directory filtering, progress tracking, and robust error handling.
 
