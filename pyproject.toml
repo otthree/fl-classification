@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "fl-adni-classification"
 description = "Federated Learning for ADNI MRI Classification using Flower and MONAI"
 readme = "README.md"
-version = "0.4.0"
+version = "1.0.1"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
