@@ -409,3 +409,24 @@ python scripts/preprocess_mri.py --input input_folder
 ```
 
 **Requirements:** ANTs, FSL, Python 3.10+
+
+## Citation
+
+If you use this code or methodology in your research, please cite:
+
+```bibtex
+@mastersthesis{hoang2025federated,
+  title={Federated Learning for Privacy-Preserving Alzheimer's Disease Classification on 3D MRI Data},
+  author={Hoang, Tin},
+  year={2025},
+  school={University of Surrey},
+  type={MSc Dissertation},
+  note={Introduces Adaptive Local Differential Privacy (ALDP) for federated learning on medical imaging data},
+  url={https://github.com/Tin-Hoang/fl-adni-classification}
+}
+```
+*\(\*\) arXiv link on the way...*
+
+## License
+
+See [LICENSE](LICENSE) file for details.
