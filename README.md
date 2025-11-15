@@ -97,6 +97,21 @@ uv pip install -e .
 
 ## Usage
 
+### Repository Architecture
+
+The repository is organized into distinct modules that work together to support both centralized and federated learning approaches for Alzheimer's disease classification:
+
+<p align="center">
+  <img src="docs/images/repo-arch.png" alt="Repository Architecture Overview" width="85%" style="padding: 10px; background-color: white; border: 1px solid #ddd;"/>
+  <br>
+  <em>Overview of the repository's modular architecture showing the core components and their interactions</em>
+</p>
+
+- **`adni_classification/`**: Core classification components including model architectures, dataset implementations, and configuration management
+- **`adni_flwr/`**: Federated learning implementation built on Flower framework, containing client/server apps, FL strategies, and task definitions
+- **`scripts/`**: Utility scripts for training, preprocessing, and data management
+- **`configs/`**: YAML configuration files for different experiments and scenarios
+
 ### Basic Training (centralized training)
 ```bash
 python scripts/train.py --config configs/default.yaml
