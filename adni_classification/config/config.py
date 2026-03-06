@@ -26,7 +26,7 @@ class DataConfig:
     use_multiprocessing_transforms: bool = False  # Whether to use multiprocessing-safe transforms
     transform_device: Optional[str] = None  # Device to use for transforms (e.g., "cuda" or "cpu")
     multiprocessing_context: str = "spawn"  # Options: "spawn", "fork", "forkserver"
-    tensor_dir: Optional[str] = None  # Root directory for pre-processed .pt tensors (used with dataset_type="tensor_folder")
+    tensor_dir: Optional[str] = None  # Root dir for pre-processed .pt tensors (used with dataset_type="tensor_folder")
     classification_mode: str = (
         "CN_MCI_AD"  # Mode for classification, either "CN_MCI_AD" (3 classes) or "CN_AD" (2 classes)
     )

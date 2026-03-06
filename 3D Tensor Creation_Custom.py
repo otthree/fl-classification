@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import gc
+import glob
 import os
-import torch
-import time
-import pandas as pd
-import nibabel as nib
-import numpy as np
 import random
 import re
-import glob
-from scipy.ndimage import zoom
-from torch.utils.data import Dataset, DataLoader
-import torchvision.transforms as transforms
-from tqdm import tqdm
+import time
 
-import gc
+import nibabel as nib
+import numpy as np
+import pandas as pd
+import torch
+import torchvision.transforms as transforms
+from scipy.ndimage import zoom
+from torch.utils.data import Dataset
+from tqdm import tqdm
 gc.collect()
 torch.cuda.empty_cache()
 
@@ -86,7 +86,7 @@ class DataPaths():
         matched_count = 0
         unmatched_count = 0
 
-        for idx, row in df.iterrows():
+        for _idx, row in df.iterrows():
             # Skip if DX is NaN
             if pd.isna(row['DX']):
                 continue
@@ -125,10 +125,10 @@ class DataPaths():
                 else:
                     unmatched_count += 1
 
-        print(f"\nMatching results:")
+        print("\nMatching results:")
         print(f"  Matched: {matched_count}")
         print(f"  Unmatched: {unmatched_count}")
-        print(f"\nClass distribution:")
+        print("\nClass distribution:")
         print(f"  CN: {len(cn_mri_scan_list)}, MCI: {len(mci_mri_scan_list)}, AD: {len(ad_mri_scan_list)}")
 
         all_images = cn_mri_scan_list + mci_mri_scan_list + ad_mri_scan_list
@@ -173,7 +173,6 @@ class ADNIAlzheimerDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        data = {}
         image_filepath = self.df['image_path'][idx]
 
         # Check if file exists
