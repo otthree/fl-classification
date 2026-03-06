@@ -1,6 +1,7 @@
 """Dataset module for loading pre-processed .pt tensor files organized in label folders."""
 
 import os
+from collections import Counter
 from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
@@ -85,7 +86,6 @@ class TensorFolderDataset(Dataset):
               f"(skipped {skipped}), mode={classification_mode}")
 
         # Print class distribution
-        from collections import Counter
         label_counts = Counter(d["label"] for d in self.data_list)
         for cls_idx in sorted(label_counts.keys()):
             print(f"  Class {cls_idx}: {label_counts[cls_idx]} samples")
