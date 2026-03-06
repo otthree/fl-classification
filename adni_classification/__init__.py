@@ -1,7 +1,7 @@
 """ADNI Classification Package.
 
 A comprehensive package for Alzheimer's Disease Neuroimaging Initiative (ADNI)
-classification using federated learning and deep learning techniques.
+3-way classification (CN vs MCI vs AD) using deep learning on 3D MRI data.
 
 This package provides:
 - Dataset handling and preprocessing utilities
@@ -13,7 +13,7 @@ This package provides:
 import os
 import sys
 
-from .config import Config, FLConfig
+from .config import Config
 
 # Check if we're in a test environment to avoid loading heavy dependencies
 _is_testing = (
@@ -77,7 +77,6 @@ __version__ = "1.0.0"
 
 __all__ = [
     "Config",
-    "FLConfig",
     "create_adni_dataset",
     "ModelFactory",
     "FocalLoss",

@@ -620,31 +620,37 @@ def main():
     dataset_type = getattr(config.data, "dataset_type", "cache")
 
     # Create datasets using the factory function
-    train_dataset = create_adni_dataset(
+    common_dataset_kwargs = dict(
         dataset_type=dataset_type,
-        csv_path=config.data.train_csv_path,
         img_dir=config.data.img_dir,
-        transform=train_transform,
         cache_rate=config.data.cache_rate,
         num_workers=config.data.cache_num_workers,
         cache_dir=config.data.cache_dir,
         classification_mode=config.data.classification_mode,
-        mci_subtype_filter=config.data.mci_subtype_filter,
-    )
-    val_dataset = create_adni_dataset(
-        dataset_type=dataset_type,
-        csv_path=config.data.val_csv_path,
-        img_dir=config.data.img_dir,
-        transform=val_transform,
-        cache_rate=config.data.cache_rate,
-        num_workers=config.data.cache_num_workers,
-        cache_dir=config.data.cache_dir,
-        classification_mode=config.data.classification_mode,
-        mci_subtype_filter=config.data.mci_subtype_filter,
     )
 
-    # Add this code to examine class distribution
-    labels = [sample['label'] for sample in train_dataset.base.data_list]
+    # Add tensor_dir for tensor_folder datasets, mci_subtype_filter for others
+    if dataset_type == "tensor_folder":
+        common_dataset_kwargs["tensor_dir"] = config.data.tensor_dir
+    else:
+        common_dataset_kwargs["mci_subtype_filter"] = config.data.mci_subtype_filter
+
+    train_dataset = create_adni_dataset(
+        csv_path=config.data.train_csv_path,
+        transform=train_transform,
+        **common_dataset_kwargs,
+    )
+    val_dataset = create_adni_dataset(
+        csv_path=config.data.val_csv_path,
+        transform=val_transform,
+        **common_dataset_kwargs,
+    )
+
+    # Extract labels for class weight computation
+    if dataset_type == "tensor_folder":
+        labels = [sample['label'] for sample in train_dataset.data_list]
+    else:
+        labels = [sample['label'] for sample in train_dataset.base.data_list]
 
     # Create data loaders with optimized multiprocessing settings
     # Using proper worker init and cleanup to prevent semaphore leaks

@@ -9,7 +9,8 @@ from adni_classification.datasets.adni_cache_dataset import ADNICacheDataset
 from adni_classification.datasets.adni_dataset import ADNIDataset
 from adni_classification.datasets.adni_persistent_dataset import ADNIPersistentDataset
 from adni_classification.datasets.adni_smartcache_dataset import ADNISmartCacheDataset
-from adni_classification.datasets.transforms import get_transforms
+from adni_classification.datasets.tensor_folder_dataset import TensorFolderDataset
+from adni_classification.datasets.transforms import get_tensor_transforms, get_transforms
 
 
 def create_adni_dataset(
@@ -23,8 +24,9 @@ def create_adni_dataset(
     cache_num: Optional[int] = None,
     cache_dir: str = "./persistent_cache",
     classification_mode: str = "CN_MCI_AD",
+    tensor_dir: Optional[str] = None,
     **kwargs: Any,
-) -> Union[ADNISmartCacheDataset, ADNICacheDataset, ADNIDataset, ADNIPersistentDataset]:
+) -> Union[ADNISmartCacheDataset, ADNICacheDataset, ADNIDataset, ADNIPersistentDataset, TensorFolderDataset]:
     """Create a dataset instance based on the specified type.
 
     Args:
@@ -78,10 +80,19 @@ def create_adni_dataset(
         return ADNIPersistentDataset(cache_dir=cache_dir, **common_kwargs)
     elif dataset_type.lower() == "normal":
         return ADNIDataset(**common_kwargs)
+    elif dataset_type.lower() == "tensor_folder":
+        if tensor_dir is None:
+            raise ValueError("tensor_dir must be provided for dataset_type='tensor_folder'")
+        return TensorFolderDataset(
+            csv_path=csv_path,
+            tensor_dir=tensor_dir,
+            transform=transform,
+            classification_mode=classification_mode,
+        )
     else:
         raise ValueError(
             f"Dataset type '{dataset_type}' not supported. "
-            f"Available types: 'smartcache', 'cache', 'persistent', 'normal'"
+            f"Available types: 'smartcache', 'cache', 'persistent', 'normal', 'tensor_folder'"
         )
 
 
@@ -105,6 +116,7 @@ def get_transforms_from_config(
         use_spacing = config.get("use_spacing", True)
         spacing_size = config.get("spacing_size", (1, 1, 1))
         transform_device = config.get("transform_device")
+        dataset_type = config.get("dataset_type", "")
     else:
         # It's a DataConfig-like object - use duck typing
         resize_size = getattr(config, "resize_size", (160, 160, 160))
@@ -112,10 +124,20 @@ def get_transforms_from_config(
         use_spacing = getattr(config, "use_spacing", True)
         spacing_size = getattr(config, "spacing_size", (1, 1, 1))
         transform_device = getattr(config, "transform_device", None)
+        dataset_type = getattr(config, "dataset_type", "")
 
     # Get device from config if not explicitly provided
     if device is None and transform_device is not None:
         device = torch.device(transform_device)
+
+    # Use tensor-specific transforms for tensor_folder datasets
+    if dataset_type == "tensor_folder":
+        return get_tensor_transforms(
+            mode=mode,
+            resize_size=resize_size,
+            resize_mode=resize_mode,
+            device=device,
+        )
 
     return get_transforms(
         mode=mode,

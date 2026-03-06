@@ -1,50 +1,17 @@
-# Federated Learning for Privacy-Preserving Alzheimer's Disease Classification on 3D MRI Data
+# ADNI1: Centralized 3-Way Alzheimer's Disease Classification on 3D MRI Data
 
 <div align="center">
 
-[![GitHub views](https://komarev.com/ghpvc/?username=Tin-Hoang&repo=fl-adni-classification&color=brightgreen&label=Views&style=flat-square)](https://github.com/Tin-Hoang/fl-adni-classification)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-blue.svg?style=flat-square)](https://pytorch.org/)
-[![Flower](https://img.shields.io/badge/Flower-FL-yellow.svg?style=flat-square)](https://flower.dev/)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json&style=flat-square)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square)](https://github.com/astral-sh/ruff)
 [![MONAI](https://img.shields.io/badge/MONAI-Medical%20AI-purple.svg?style=flat-square)](https://monai.io/)
-[![Functional Tests](https://github.com/Tin-Hoang/fl-adni-classification/workflows/Functional%20Tests/badge.svg?style=flat-square)](https://github.com/Tin-Hoang/fl-adni-classification/actions/workflows/functional_test.yml)
-[![GitHub stars](https://img.shields.io/github/stars/Tin-Hoang/fl-adni-classification?style=flat-square)](https://github.com/Tin-Hoang/fl-adni-classification/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Tin-Hoang/fl-adni-classification?style=flat-square)](https://github.com/Tin-Hoang/fl-adni-classification/network/members)
 
 </div>
 
-***Abstract:** Federated learning enables medical institutions to collaboratively train diagnostic AI models while maintaining strict patient data privacy. This research advances the field by focusing on Alzheimer’s disease classification using 3D MRI scans from the ADNI dataset. We introduce a novel site-aware data partitioning method that realistically mirrors multi-institutional data boundaries and heterogeneity, addressing limitations of previous approaches. The proposed Adaptive Local Differential Privacy (ALDP) mechanism dynamically adjusts its privacy parameters during training, resulting in significant improvements in accuracy and stability compared to traditional fixed-noise methods. Through comprehensive benchmarking and ablation studies, the work demonstrates that federated optimisation algorithms like FedProx can achieve performance equal to or better than centralized models, with ALDP reaching up to 80.4% accuracy, outperforming standard local DP approaches by 5–7 percentage points. These findings provide practical standards and guidelines for deploying privacy-compliant collaborative medical AI in real-world healthcare settings.*
-
-This project supports both centralized and federated learning approaches for Alzheimer's Disease classification.
-
-### Centralized Training
-
-In centralized training, all MRI data from different institutions is aggregated in a single central server for model training. The data is processed and used to train a single global model without any privacy-preserving mechanisms.
-
-<p align="center">
-  <img src="docs/images/centralised-training.png" alt="Centralized Training Architecture" width="80%" style="padding: 10px; background-color: white; border: 1px solid #ddd;"/>
-</p>
-
-### Federated Learning
-
-In federated learning, data remains distributed across participating institutions, ensuring strict privacy preservation. Each client trains locally on their own data and only shares encrypted model updates with the central server, never exposing raw patient data. This project implements **Adaptive Local Differential Privacy (ALDP)**, a novel contribution that dynamically adjusts privacy parameters during training to achieve superior accuracy while maintaining strong privacy guarantees.
-
-#### Key Features:
-- **Privacy-Preserving**: Patient data never leaves the institution
-- **Adaptive Differential Privacy**: Dynamic noise adjustment for optimal utility-privacy trade-off
-- **Secure Aggregation**: Encrypted model updates using SecAgg+ protocol
-- **Multi-Strategy Support**: FedAvg, FedProx, and custom ALDP implementations
-
-<p align="center">
-  <img src="docs/images/fl-dp.png" alt="Federated Learning with Adaptive Differential Privacy" width="85%" style="padding: 10px; background-color: white; border: 1px solid #ddd;"/>
-  <br>
-  <em>Overview of the Federated Learning system with Adaptive Local Differential Privacy - a key novelty of this research</em>
-</p>
+Centralized deep learning pipeline for **CN vs MCI vs AD** 3-way classification using 3D MRI scans from the ADNI (Alzheimer's Disease Neuroimaging Initiative) dataset.
 
 ## Setup
-
-Using UV for dependency management:
 
 ```bash
 # Install UV
@@ -52,7 +19,6 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Create a virtual environment and install dependencies
 uv venv --python 3.11
-# Activate the virtual environment
 source .venv/bin/activate
 
 # Install required dependencies
@@ -61,258 +27,53 @@ uv pip install -e .
 
 ## Usage
 
-### Repository Architecture
+### Training
 
-The repository is organized into distinct modules that work together to support both centralized and federated learning approaches for Alzheimer's disease classification:
-
-<p align="center">
-  <img src="docs/images/repo-arch.png" alt="Repository Architecture Overview" width="85%" style="padding: 10px; background-color: white; border: 1px solid #ddd;"/>
-  <br>
-  <em>Overview of the repository's modular architecture showing the core components and their interactions</em>
-</p>
-
-- **`adni_classification/`**: Core classification components including model architectures, dataset implementations, and configuration management
-- **`adni_flwr/`**: Federated learning implementation built on Flower framework, containing client/server apps, FL strategies, and task definitions
-- **`scripts/`**: Utility scripts for training, preprocessing, and data management
-- **`configs/`**: YAML configuration files for different experiments and scenarios
-
-<details>
-<summary>Repo Folder Structure</summary>
-
-```
-fl-adni-classification/
-├── adni_flwr/           # Federated learning implementation (Flower)
-│   ├── client_app.py    # FL client application
-│   ├── server_app.py    # FL server application
-│   ├── server_fn.py     # Server functions
-│   ├── task.py          # FL task definitions
-│   └── strategies/      # FL aggregation strategies
-├── adni_classification/ # Core classification components
-│   ├── models/          # Model implementations
-│   ├── datasets/        # Dataset implementations
-│   ├── utils/           # Utility functions
-│   └── config/          # Configuration management
-│       ├── config.py    # Main configuration
-│       └── fl_config.py # FL-specific configuration
-├── scripts/             # Training and utility scripts
-│   ├── train.py         # Main training script
-│   ├── preprocess_mri.py # MRI preprocessing pipeline
-│   ├── split_data_for_fl.py # Data splitting for FL
-│   ├── filter_csv_by_images.py # CSV filtering utilities
-│   ├── calculate_adni_statistics.py # Statistics calculation
-│   └── [other utility scripts]
-├── configs/             # Configuration YAML files
-├── data/                # Data directory
-├── logs/                # Training logs
-├── run_local_simulation.py    # Run local simulation (single machine)
-├── run_multi_machines_tmux.py # Distributed multi-machine FL with tmux
-├── pyproject.toml             # Project dependencies (uv)
-└── README.md                  # Project documentation
-```
-</details>
-
-### Basic Training (centralized training)
 ```bash
 python scripts/train.py --config configs/default.yaml
 ```
 
-### Federated Learning (using Flower)
-#### Option 1: FL Local Simulation (single machine)
-- Modify `pyproject.toml` to configure the FL simulation:
-  - `client-config-files` is the path to the client config files, each client config file is a YAML file that contains the configuration for a single client.
-  - `server-config-file` is the path to the server config file.
-  - `options.num-supernodes` is the number of supernodes.
-  - `options.backend.client-resources.num-cpus` is the number of CPUs per client.
-  - `options.backend.client-resources.num-gpus` is the number of GPUs per client.
-
-- Run the following command to start the FL local simulation (single machine):
-```bash
-flwr run .
-```
-
-Or, using the following command to start the FL server
-```bash
-# Single machine FL
-python run_local_simulation.py configs/<experiment_name>/fl_server.yaml
-```
-
-#### Option 2: FL Multi-Machine Deployment
-
-The project supports distributed multi-machine deployment via [Flower network communication](https://flower.ai/docs/framework/ref-flower-network-communication.html) with automated SSH tunnel establishment when needed.
-
-##### Prerequisites
-
-1. **SSH Access**: Ensure passwordless SSH access to all client machines or set the `FL_PASSWORD` environment variable
-2. **Synchronized Project**: The project directory must be synchronized across all machines
-3. **Virtual Environment**: Python virtual environment must be set up on all machines with identical paths
-4. **Network Configuration**: Ensure machines can communicate via SSH (port 22) and Flower ports (if no firewall restrictions)
-
-##### Configuration Steps
-
-**Step 1: Configure Multi-Machine FL in `fl_server.yaml`**
-
-Add the `multi_machine` section to your FL configuration:
-<details>
-<summary>Configuration for Multi-Machine FL</summary>
-
-```yaml
-fl:
-  # Standard FL parameters
-  num_rounds: 100
-  fraction_fit: 1.0
-  min_fit_clients: 4
-  min_evaluate_clients: 4
-  min_available_clients: 4
-  local_epochs: 1
-  strategy: "fedavg"
-  evaluate_frequency: 5
-
-  # Multi-machine configuration
-  multi_machine:
-    # Server machine configuration
-    server:
-      host: "<your_server_hostname>"      # Server hostname/IP
-      username: "<your_username>"                    # SSH username
-      password: null                         # Use FL_PASSWORD env var
-      port: 9092                            # Flower server port
-      config_file: "configs/experiment/fl_server.yaml"  # Server config path
-      sequential_experiment: true           # Enable sequential experiments
-      train_sequential_labels:             # Training data for sequential runs
-        - "data/ADNI/LABELS/seed01/client_all_train.csv"
-        - "data/ADNI/LABELS/seed10/client_all_train.csv"
-        - "data/ADNI/LABELS/seed42/client_all_train.csv"
-      val_sequential_labels:               # Validation data for sequential runs
-        - "data/ADNI/LABELS/seed01/client_all_val.csv"
-        - "data/ADNI/LABELS/seed10/client_all_val.csv"
-        - "data/ADNI/LABELS/seed42/client_all_val.csv"
-
-    # Client machines configuration
-    clients:
-      - host: "<client1_hostname>"    # Client 1 hostname/IP
-        username: "<your_username>"                 # SSH username
-        password: null                      # Use FL_PASSWORD env var
-        partition_id: 0                     # Unique client ID
-        project_dir: null                   # Use global project_dir
-        config_file: "configs/experiment/client1.yaml"  # Client config path
-        sequential_experiment: true         # Enable sequential experiments
-        train_sequential_labels:           # Training data for this client
-          - "data/ADNI/LABELS/seed01/client_1_train.csv"
-          - "data/ADNI/LABELS/seed10/client_1_train.csv"
-          - "data/ADNI/LABELS/seed42/client_1_train.csv"
-        val_sequential_labels:             # Validation data for this client
-          - "data/ADNI/LABELS/seed01/client_1_val.csv"
-          - "data/ADNI/LABELS/seed10/client_1_val.csv"
-          - "data/ADNI/LABELS/seed42/client_1_val.csv"
-
-      - host: "<client2_hostname>"    # Client 2 configuration
-        username: "<your_username>"
-        password: null
-        partition_id: 1
-        project_dir: null
-        config_file: "configs/experiment/client2.yaml"
-        sequential_experiment: true
-        train_sequential_labels:
-          - "data/ADNI/LABELS/seed01/client_2_train.csv"
-          - "data/ADNI/LABELS/seed10/client_2_train.csv"
-          - "data/ADNI/LABELS/seed42/client_2_train.csv"
-        val_sequential_labels:
-          - "data/ADNI/LABELS/seed01/client_2_val.csv"
-          - "data/ADNI/LABELS/seed10/client_2_val.csv"
-          - "data/ADNI/LABELS/seed42/client_2_val.csv"
-
-    # Project configuration (shared across all machines)
-    project_dir: "<your_project_dir>/fl-adni-classification"
-    venv_path: "<your_venv_path>/bin/python"
-    venv_activate: "<your_venv_path>/bin/activate"
-
-    # SSH configuration
-    ssh:
-      timeout: 30
-      banner_timeout: 30
-      auth_timeout: 30
-```
-
-</details>
-
-
-**Step 2: Set Environment Variables**
+### Testing
 
 ```bash
-# Set password for SSH authentication (if not using passwordless SSH)
-export FL_PASSWORD="your_password_here"
+python scripts/test.py --config configs/default.yaml --checkpoint outputs/<run_name>/checkpoints/best_model.pth
 ```
 
-**Step 3: Prepare Client Configuration Files**
+### Repository Structure
 
-Create individual client configuration files (e.g., `client1.yaml`, `client2.yaml`) with client-specific settings:
-
-```yaml
-# client1.yaml
-data:
-  train_csv_path: "data/ADNI/LABELS/seed01/client_1_train.csv"
-  val_csv_path: "data/ADNI/LABELS/seed01/client_1_val.csv"
-  img_dir: "data/ADNI/images"
-
-model:
-  name: "rosanna_cnn"
-  num_classes: 2
-
-training:
-  batch_size: 4
-  learning_rate: 0.001
-  num_workers: 4
-
-fl:
-  client_id: 0
-  local_epochs: 1
 ```
-
-**Step 4: Deploy Multi-Machine FL**
-
-```bash
-# Multi-machine FL with tmux (recommended)
-python run_multi_machines_tmux.py --config configs/experiment/fl_server.yaml
-
-# Alternative: Multi-machine FL without tmux
-python run_multi_machines.py --config configs/experiment/fl_server.yaml
+adni1/
+├── adni_classification/       # Core classification components
+│   ├── models/                # Model implementations (ResNet3D, DenseNet3D, SimpleCNN, RosannaCNN, SecureFedCNN)
+│   ├── datasets/              # Dataset implementations
+│   │   ├── adni_dataset.py            # NIfTI dataset (normal, cache, smartcache, persistent)
+│   │   └── tensor_folder_dataset.py   # Pre-processed .pt tensor dataset
+│   ├── utils/                 # Utility functions (training, losses, visualization)
+│   └── config/                # Configuration management
+│       └── config.py          # Main configuration
+├── scripts/                   # Training and utility scripts
+│   ├── train.py               # Main training script
+│   ├── test.py                # Model evaluation script
+│   ├── split_by_patient.py    # Patient-wise train/val split
+│   └── preprocess_mri.py      # MRI preprocessing pipeline
+├── configs/                   # Configuration YAML files
+│   ├── tensor_resnet18.yaml   # Config for .pt tensor training
+│   └── ...
+├── pyproject.toml             # Project dependencies (uv)
+└── README.md
 ```
-
-##### Advanced Features
-
-**Sequential Experiments**: The framework supports running multiple experiments with different random seeds automatically. Set `sequential_experiment: true` and provide lists of training/validation CSV files for different seeds.
-
-**Automatic SSH Tunneling**: If machines cannot communicate via default Flower ports due to firewall restrictions, the system automatically establishes SSH tunnels.
-
-**Dynamic Client Management**: The system handles client failures and reconnections automatically during training.
-
-**Resource Monitoring**: Built-in GPU and memory monitoring across all client machines.
-
-##### Troubleshooting
-
-1. **SSH Connection Issues**: Ensure passwordless SSH or correct `FL_PASSWORD` environment variable
-2. **Port Conflicts**: Modify `port` in server configuration if 9092 is occupied
-3. **Synchronization Issues**: Ensure all machines have identical project directories and dependencies
-4. **GPU Allocation**: Use `CUDA_VISIBLE_DEVICES` to control GPU usage per client
-
-*Note: SSH tunnels will be established automatically between server and client nodes if direct communication via Flower ports is not possible.*
 
 ## Configuration
 
-The project uses a sophisticated YAML-based configuration system with structured dataclasses located in `adni_classification/config/`. Configuration files are stored in the `configs/` directory.
+The project uses YAML-based configuration with structured dataclasses in `adni_classification/config/`.
 
 ### Configuration Structure
 
-The configuration system is organized into five main sections:
-
 #### 1. Data Configuration (`data:`)
-- **Dataset paths**: `train_csv_path`, `val_csv_path`, `img_dir`
-- **Dataset types**: `normal`, `cache`, `smartcache`, `persistent`
-  - `normal`: Normal dataset (default)
-  - `cache`: Cache dataset reference: https://docs.monai.io/en/stable/data.html#monai.data.CacheDataset
-  - `smartcache`: Smart cache dataset reference: https://docs.monai.io/en/stable/data.html#monai.data.SmartCacheDataset
-  - `persistent`: Persistent dataset reference: https://docs.monai.io/en/stable/data.html#monai.data.PersistentDataset
+- **Dataset paths**: `train_csv_path`, `val_csv_path`, `img_dir`, `tensor_dir`
+- **Dataset types**: `normal`, `cache`, `smartcache`, `persistent`, `tensor_folder`
 - **Image preprocessing**: `resize_size`, `resize_mode`, `spacing_size`
-- **Classification modes**: `CN_MCI_AD` (3-class) or `CN_AD` (2-class). For `CN_AD` mode, users can optionally convert MCI samples to AD samples by DX_bl column to include only specific MCI subtypes: SMC (Significant Memory Concern), EMCI (Early MCI), or LMCI (Late MCI) with `mci_subtype_filter` parameter.
+- **Classification modes**: `CN_MCI_AD` (3-class) or `CN_AD` (2-class)
 - **Caching options**: `cache_rate`, `cache_num_workers`, `cache_dir`
 
 #### 2. Model Configuration (`model:`)
@@ -327,82 +88,143 @@ The configuration system is organized into five main sections:
 - **Class balancing**: `use_class_weights`, `class_weight_type`, `manual_class_weights`
 - **Checkpointing**: `save_best`, `save_latest`, `save_regular`, `save_frequency`
 
-#### 4. Federated Learning Configuration (`fl:`)
-- **FL strategies**: `fedavg`, `fedprox`, `secagg`, `secaggplus`
-- **Round configuration**: `num_rounds`, `local_epochs`, `evaluate_frequency`
-- **Client selection**: `fraction_fit`, `min_fit_clients`, `min_available_clients`
-- **Strategy-specific**: `fedprox_mu`, `dp_noise_multiplier`, `dp_dropout_rate`, `secagg_num_shares`, `secagg_reconstruction_threshold`, `secagg_max_weight`, `secagg_timeout`, `secagg_clipping_range`, `secagg_quantization_range`
-
-#### 5. Weights & Biases Configuration (`wandb:`)
+#### 4. Weights & Biases Configuration (`wandb:`)
 - **Experiment tracking**: `use_wandb`, `project`, `entity`
 - **Organization**: `tags`, `notes`, `run_name`
 
-
-### Advanced Features
-
-#### Dataset Caching
-```yaml
-data:
-  dataset_type: "smartcache"
-  cache_rate: 0.5
-  cache_num_workers: 8
-  transform_device: "cuda"
-```
-
-#### Focal Loss and Class Weighting for Class Imbalance
-```yaml
-training:
-  loss_type: "focal"
-  focal_alpha: 0.25
-  focal_gamma: 2.0
-  use_class_weights: true
-  class_weight_type: "inverse"
-```
-
-#### Mixed Precision Training
-```yaml
-training:
-  mixed_precision: true
-  gradient_accumulation_steps: 2
-```
-
 ## Data Format
 
-The input data should be:
+### Option A: Raw NIfTI Images (`.nii` / `.nii.gz`)
+
 - 3D MRI images in .nii or .nii.gz format
-- A CSV label file containing metadata with the following columns:
+- A CSV label file with the following columns:
   - `image_id`: The ID of the image in the ADNI database (without 'I' prefix)
   - `subject_id`: The ID of the subject in the ADNI database
   - `DX`: Diagnosis group (AD, MCI, CN)
-  - `DX_bl`: (optional) for filtering MCI samples to only include specific MCI subtypes: SMC (Significant Memory Concern), EMCI (Early MCI), or LMCI (Late MCI)
+  - `DX_bl`: (optional) for filtering MCI subtypes: SMC, EMCI, or LMCI
 
-Images should be organized in the following structure
-(ADNI downloaded data normally should follow this structure already):
+Images should be organized as:
 ```
 <root_img_dir>/
 └── <subject_id>/
-    └── <intermediate_metadata_info (may more than one sublevel)>/
+    └── <intermediate_metadata_info>/
         └── ADNI_<subject_id>_<metadata_info>_I<image_id>.nii.gz
 ```
 
-## ADNI MRI Preprocessing
+### Option B: Pre-processed PyTorch Tensors (`.pt`)
 
-The project includes a comprehensive MRI preprocessing pipeline that automates the standardization of raw ADNI MRI scans through three critical steps:
+이미 전처리가 완료된 3D MRI 텐서를 `.pt` 파일로 저장한 경우 `tensor_folder` 데이터셋 타입을 사용합니다.
+
+#### 1. 필요한 파일 준비
+
+디렉토리 구조를 아래와 같이 프로젝트 루트에 배치합니다:
+
+```
+fl-adni-classification/          # 프로젝트 루트
+├── 3D_tensors/                  # tensor_dir (텐서 폴더)
+│   ├── CN/
+│   │   ├── 001.pt
+│   │   ├── 002.pt
+│   │   └── ...
+│   ├── MCI/
+│   │   ├── 003.pt
+│   │   └── ...
+│   └── AD/
+│       ├── 004.pt
+│       └── ...
+├── csv_splits_all_mri_scan_list.csv   # 마스터 CSV
+└── ...
+```
+
+- **`3D_tensors/`**: 레이블 이름(CN, MCI, AD)으로 분류된 `.pt` 파일들. 각 `.pt` 파일은 `torch.save()`로 저장된 4D `[1, D, H, W]` 텐서
+
+**텐서 사양** (`3D Tensor Creation_Custom.py` 기준):
+
+| 항목 | 값 |
+|------|-----|
+| Shape | `(1, 192, 192, 192)` |
+| dtype | `float32` |
+| 채널 | 1 (그레이스케일) |
+| 공간 해상도 | 192 × 192 × 192 voxel |
+
+생성 과정:
+1. `.nii.gz` 로드 → numpy array `(xdim, ydim, zdim)`
+2. 256 × 256 × 256으로 zero-padding (중앙 정렬)
+3. `scipy.ndimage.zoom`으로 192 × 192 × 192로 리사이즈 (bilinear, order=1)
+4. `reshape(1, 192, 192, 192)` → channel 차원 추가
+5. `float32` 변환 후 `torch.save()`로 저장
+- **마스터 CSV**: 아래 칼럼을 포함해야 합니다
+
+| 칼럼 | 설명 | 예시 |
+|------|------|------|
+| `pt_index` | `.pt` 파일명 (확장자 제외) | `001` |
+| `patient_id` | 환자 고유 ID (split에 사용) | `P_0042` |
+| `label` | 진단 레이블 | `CN`, `MCI`, `AD` |
+| `image_path` | (선택) 원본 이미지 경로 | `sub-01/anat/T1w.nii.gz` |
+| `image_id` | (선택) 이미지 ID | `I12345` |
+
+#### 2. 환자 단위 Train/Val Split 생성
+
+같은 환자의 모든 스캔이 동일한 split에 포함되도록 환자 단위로 분할합니다:
+
+```bash
+python scripts/split_by_patient.py \
+  --csv csv_splits_all_mri_scan_list.csv \
+  --output_dir csv_splits \
+  --train_ratio 0.8 \
+  --seed 42
+```
+
+실행 결과 `csv_splits/train.csv`와 `csv_splits/val.csv`가 생성됩니다.
+
+#### 3. 학습 실행
+
+```bash
+python scripts/train.py --config configs/tensor_resnet18.yaml
+```
+
+`configs/tensor_resnet18.yaml`의 주요 설정:
+
+```yaml
+data:
+  train_csv_path: "csv_splits/train.csv"
+  val_csv_path: "csv_splits/val.csv"
+  tensor_dir: "3D_tensors"           # .pt 파일 루트 폴더
+  dataset_type: "tensor_folder"      # 텐서 폴더 데이터셋 사용
+  resize_size: [128, 128, 128]
+  classification_mode: "CN_MCI_AD"   # 3-class (CN=0, MCI=1, AD=2)
+
+model:
+  name: "resnet3d"
+  num_classes: 3
+  model_depth: 18
+```
+
+경로가 다른 경우 yaml 파일의 `tensor_dir`, `train_csv_path`, `val_csv_path`를 수정하면 됩니다.
+
+#### 4. 전체 순서 요약
+
+```bash
+# 0. 환경 설정
+uv venv --python 3.11 && source .venv/bin/activate && uv pip install -e .
+
+# 1. 데이터 배치: 3D_tensors/ 폴더와 마스터 CSV를 프로젝트 루트에 복사
+
+# 2. 환자 단위 split 생성
+python scripts/split_by_patient.py \
+  --csv csv_splits_all_mri_scan_list.csv \
+  --output_dir csv_splits
+
+# 3. 학습 시작
+python scripts/train.py --config configs/tensor_resnet18.yaml
+```
+
+## MRI Preprocessing
+
+The project includes a preprocessing pipeline for standardizing raw ADNI MRI scans:
 1. Resampling to 1mm isotropic spacing
-2. Registration to a standard template (ICBM152)
+2. Registration to ICBM152 standard template
 3. Skull stripping using FSL BET
-
-This pipeline ensures consistent spatial normalization and brain extraction across all images, which is essential for reliable model training and cross-institutional data sharing in federated learning scenarios.
-
-<p align="center">
-  <img src="docs/images/adni-preprocess.png" alt="ADNI MRI Preprocessing Pipeline" width="85%" style="padding: 10px; background-color: white; border: 1px solid #ddd;"/>
-  <br>
-  <em>Three-stage MRI preprocessing pipeline: resampling, registration to MNI template, and skull stripping</em>
-</p>
-
-📖 **For complete preprocessing documentation, see [docs/MRI_PREPROCESSING.md](docs/MRI_PREPROCESSING.md)**
-
-### Quick Start
 
 ```bash
 python scripts/preprocess_mri.py --input input_folder
@@ -410,24 +232,8 @@ python scripts/preprocess_mri.py --input input_folder
 
 **Requirements:** ANTs, FSL, Python 3.10+
 
-## Citation
-
-If you use this code or methodology in your research, please cite:
-
-```bibtex
-@mastersthesis{hoang2025federated,
-  title={Federated Learning for Privacy-Preserving Alzheimer's Disease Classification on 3D MRI Data},
-  author={Hoang, Tin},
-  year={2025},
-  school={University of Surrey},
-  type={MSc Dissertation},
-  note={Introduces Adaptive Local Differential Privacy (ALDP) for federated learning on medical imaging data},
-  url={https://github.com/Tin-Hoang/fl-adni-classification}
-}
-```
-*\(\*\) arXiv link on the way...*
+See [docs/MRI_PREPROCESSING.md](docs/MRI_PREPROCESSING.md) for details.
 
 ## License
 
 See [LICENSE](LICENSE) file for details.
-# fl-classification

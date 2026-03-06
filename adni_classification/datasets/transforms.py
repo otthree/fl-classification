@@ -392,6 +392,102 @@ if __name__ == "__main__":
     test_transforms()
 
 
+def get_tensor_transforms(
+    mode: str = "train",
+    resize_size: Tuple[int, int, int] = (128, 128, 128),
+    resize_mode: str = "trilinear",
+    augmentation_strength: str = "moderate",
+    device: Optional[Union[str, torch.device]] = None,
+) -> monai.transforms.Compose:
+    """Get transforms for pre-processed .pt tensor data.
+
+    Unlike get_transforms(), this skips LoadImaged / EnsureChannelFirstd /
+    Orientationd / Spacingd because the tensors are already preprocessed.
+
+    Args:
+        mode: Either "train" or "val"
+        resize_size: Target spatial size (D, H, W)
+        resize_mode: Interpolation mode for resizing
+        augmentation_strength: "mild", "moderate", or "strong"
+        device: Device for transforms
+
+    Returns:
+        A Compose transform operating on {"image": Tensor, "label": int} dicts
+    """
+    if not isinstance(resize_size, tuple):
+        resize_size = tuple(resize_size)
+
+    common_transforms = [
+        # Normalize intensity to [0, 1]
+        ScaleIntensityRanged(
+            keys=["image"],
+            a_min=0.0,
+            a_max=1.0,
+            b_min=0.0,
+            b_max=1.0,
+            clip=True,
+        ),
+        Resized(
+            keys=["image"],
+            spatial_size=resize_size,
+            mode=resize_mode,
+        ),
+    ]
+
+    if mode == "train":
+        print(f"[tensor_transforms] Using augmentation strength: {augmentation_strength}")
+        if augmentation_strength == "mild":
+            flip_prob = 0.3
+            affine_prob = 0.3
+            noise_std = 0.01
+            contrast_gamma = (0.95, 1.05)
+            rotation_range = 0.087
+            scale_range = 0.05
+            translate_range = 3
+        elif augmentation_strength == "moderate":
+            flip_prob = 0.5
+            affine_prob = 0.4
+            noise_std = 0.02
+            contrast_gamma = (0.9, 1.1)
+            rotation_range = 0.17
+            scale_range = 0.1
+            translate_range = 5
+        else:  # strong
+            flip_prob = 0.7
+            affine_prob = 0.6
+            noise_std = 0.05
+            contrast_gamma = (0.8, 1.2)
+            rotation_range = 0.26
+            scale_range = 0.15
+            translate_range = 8
+
+        train_transforms = [
+            RandFlipd(keys=["image"], spatial_axis=0, prob=flip_prob),
+            RandAffined(
+                keys=["image"],
+                rotate_range=(rotation_range, rotation_range, rotation_range),
+                scale_range=(scale_range, scale_range, scale_range),
+                translate_range=translate_range,
+                prob=affine_prob,
+                mode="bilinear",
+                padding_mode="constant",
+                spatial_size=resize_size,
+                device=device,
+            ),
+            RandGaussianNoised(keys=["image"], prob=0.5, std=noise_std),
+            RandAdjustContrastd(keys=["image"], prob=0.5, gamma=contrast_gamma),
+            RandShiftIntensityd(keys=["image"], prob=0.4, offsets=(-0.1, 0.1)),
+            RandScaleIntensityd(keys=["image"], prob=0.4, factors=(-0.2, 0.2)),
+            ToTensord(keys=["image", "label"]),
+        ]
+        return Compose(common_transforms + train_transforms)
+    else:  # val
+        val_transforms = [
+            ToTensord(keys=["image", "label"]),
+        ]
+        return Compose(common_transforms + val_transforms)
+
+
 def get_adni_augmentation_config(overfitting_level: str = "high") -> dict:
     """Get recommended augmentation configuration for ADNI dataset based on overfitting level.
 

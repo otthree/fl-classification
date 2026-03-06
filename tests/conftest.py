@@ -92,41 +92,11 @@ def sample_training_config_dict(sample_checkpoint_config_dict) -> Dict[str, Any]
 
 
 @pytest.fixture
-def sample_fl_config_dict() -> Dict[str, Any]:
-    """Sample FLConfig dictionary for testing."""
-    return {
-        "num_rounds": 10,
-        "strategy": "fedavg",
-        "fraction_fit": 1.0,
-        "fraction_evaluate": 1.0,
-        "min_fit_clients": 2,
-        "min_evaluate_clients": 2,
-        "min_available_clients": 2,
-        "local_epochs": 1,
-        "client_config_files": None,
-        "evaluate_frequency": 1,
-        "fedprox_mu": 0.01,
-        "dp_clipping_norm": 1.0,
-        "dp_sensitivity": 1.0,
-        "dp_epsilon": 1.0,
-        "dp_delta": 1e-5,
-        "secagg_num_shares": 3,
-        "secagg_reconstruction_threshold": 3,
-        "secagg_max_weight": 16777216,
-        "secagg_timeout": 30.0,
-        "secagg_clipping_range": 1.0,
-        "secagg_quantization_range": 1048576,
-        "client_id": None,
-        "multi_machine": None,
-    }
-
-
-@pytest.fixture
 def sample_wandb_config_dict() -> Dict[str, Any]:
     """Sample WandbConfig dictionary for testing."""
     return {
         "use_wandb": True,
-        "project": "fl-adni-classification",
+        "project": "adni1",
         "entity": None,
         "tags": ["test", "unit"],
         "notes": "Test run",
@@ -141,7 +111,6 @@ def sample_full_config_dict(
     sample_data_config_dict,
     sample_model_config_dict,
     sample_training_config_dict,
-    sample_fl_config_dict,
     sample_wandb_config_dict,
 ) -> Dict[str, Any]:
     """Complete sample configuration dictionary for testing."""
@@ -149,7 +118,6 @@ def sample_full_config_dict(
         "data": sample_data_config_dict,
         "model": sample_model_config_dict,
         "training": sample_training_config_dict,
-        "fl": sample_fl_config_dict,
         "wandb": sample_wandb_config_dict,
     }
 
@@ -163,59 +131,3 @@ def sample_yaml_file(temp_dir, sample_full_config_dict):
     return yaml_path
 
 
-@pytest.fixture
-def sample_ssh_config_dict() -> Dict[str, Any]:
-    """Sample SSHConfig dictionary for testing."""
-    return {
-        "timeout": 30,
-        "banner_timeout": 30,
-        "auth_timeout": 30,
-    }
-
-
-@pytest.fixture
-def sample_client_machine_config_dict() -> Dict[str, Any]:
-    """Sample ClientMachineConfig dictionary for testing."""
-    return {
-        "host": "client1.example.com",
-        "username": "testuser",
-        "password": "testpass",
-        "partition_id": 0,
-        "project_dir": "/home/testuser/project",
-        "config_file": "client1.yaml",
-        "sequential_experiment": False,
-        "train_sequential_labels": None,
-        "val_sequential_labels": None,
-    }
-
-
-@pytest.fixture
-def sample_server_machine_config_dict() -> Dict[str, Any]:
-    """Sample ServerMachineConfig dictionary for testing."""
-    return {
-        "host": "server.example.com",
-        "username": "serveruser",
-        "password": "serverpass",
-        "port": 9092,
-        "config_file": "server.yaml",
-        "sequential_experiment": False,
-        "train_sequential_labels": None,
-        "val_sequential_labels": None,
-    }
-
-
-@pytest.fixture
-def sample_multi_machine_config_dict(
-    sample_server_machine_config_dict,
-    sample_client_machine_config_dict,
-    sample_ssh_config_dict,
-) -> Dict[str, Any]:
-    """Sample MultiMachineConfig dictionary for testing."""
-    return {
-        "server": sample_server_machine_config_dict,
-        "clients": [sample_client_machine_config_dict],
-        "project_dir": "/home/user/project",
-        "venv_path": "/home/user/.venv",
-        "venv_activate": "source /home/user/.venv/bin/activate",
-        "ssh": sample_ssh_config_dict,
-    }

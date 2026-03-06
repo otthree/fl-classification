@@ -285,7 +285,7 @@ class TestConfig:
         assert config.data.train_csv_path == "/path/to/train.csv"
         assert config.model.name == "resnet3d"
         assert config.training.batch_size == 8
-        assert config.wandb.project == "fl-adni-classification"
+        assert config.wandb.project == "adni1"
 
     def test_config_creation_from_yaml(self, sample_yaml_file):
         """Test Config creation from YAML file."""
@@ -313,7 +313,6 @@ class TestConfig:
                 "num_workers": 4,
                 "output_dir": "outputs",
             },
-            "fl": {},
             "wandb": {
                 "use_wandb": False,
                 "project": "test",
@@ -367,7 +366,6 @@ class TestConfig:
         assert "data" in config_dict
         assert "model" in config_dict
         assert "training" in config_dict
-        assert "fl" in config_dict
         assert "wandb" in config_dict
 
         assert config_dict["data"]["train_csv_path"] == "/path/to/train.csv"
@@ -428,7 +426,6 @@ class TestConfig:
                     "save_frequency": 5,
                 },
             },
-            "fl": {},
             "wandb": {
                 "use_wandb": False,
                 "project": "test",

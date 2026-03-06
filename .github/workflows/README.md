@@ -35,5 +35,5 @@ uv run pytest tests/test_imports.py tests/config/ -v
 uv run ruff check adni_classification tests --select E,W,F --ignore E501
 
 # Generate coverage report
-uv run pytest tests/test_imports.py tests/config/ --cov=adni_classification --cov=adni_flwr --cov-report=term-missing
+uv run pytest tests/test_imports.py tests/config/ --cov=adni_classification --cov-report=term-missing
 ```

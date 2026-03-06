@@ -47,4 +47,4 @@ jobs:
       env:
         PYTORCH_DISABLE_DOCSTRING_CHECK: 1
       run: |
-        uv run pytest tests/config/ tests/test_imports.py tests/test_adni_base_dataset.py --cov=adni_classification.config --cov=adni_classification.datasets --cov=adni_classification --cov=adni_flwr --cov-report=term-missing --tb=short
+        uv run pytest tests/config/ tests/test_imports.py tests/test_adni_base_dataset.py --cov=adni_classification.config --cov=adni_classification.datasets --cov=adni_classification --cov-report=term-missing --tb=short

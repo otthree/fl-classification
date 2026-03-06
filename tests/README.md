@@ -12,8 +12,7 @@ tests/
 ├── README.md                   # This documentation
 └── config/                     # Configuration tests
     ├── __init__.py            # Config tests subpackage
-    ├── test_config.py         # Tests for main config classes
-    └── test_fl_config.py      # Tests for federated learning config
+    └── test_config.py         # Tests for main config classes
 ```
 
 ## Test Coverage
@@ -26,13 +25,6 @@ Tests for package structure and import validation:
   - Export validation against `__all__` declarations
   - Submodule imports (config, datasets, models, utils)
   - Individual class and function imports
-- **TestAdniFlwrImports**: Tests for `adni_flwr` package
-  - Federated learning strategies import validation
-  - Core FL application modules (client_app, server_app, task)
-  - Strategy factory and configuration validation
-- **TestCrossPackageCompatibility**: Integration between packages
-  - Simultaneous import of both packages
-  - Configuration integration between packages
 - **TestImportErrorHandling**: Error handling and robustness
   - Graceful handling of missing dependencies
   - Package structure validation
@@ -53,29 +45,12 @@ Tests for `adni_classification.config.config` module:
   - Serialization (to_dict, to_yaml)
   - Error handling
 
-#### `test_fl_config.py`
-Tests for `adni_classification.config.fl_config` module:
-
-- **SSHConfig**: Tests SSH connection parameters for multi-machine setups
-- **ClientMachineConfig**: Tests client machine configuration for federated learning
-- **ServerMachineConfig**: Tests server machine configuration
-- **MultiMachineConfig**: Tests distributed federated learning setup including:
-  - Server and client configuration management
-  - Environment variable password handling
-  - Configuration dictionary conversion
-- **FLConfig**: Tests federated learning parameters including:
-  - Basic FL strategies (FedAvg, FedProx)
-  - Differential privacy settings
-  - Secure aggregation (SecAgg+) parameters
-  - Client management and evaluation settings
-
 ## Fixtures (`conftest.py`)
 
 The `conftest.py` file provides shared fixtures for all tests:
 
 - **Configuration Dictionaries**: Sample configurations for all config classes
 - **Temporary Files**: Temporary directories and YAML files for testing file operations
-- **Multi-machine Setup**: Complete federated learning setup configurations
 
 ## Running the Tests
 
@@ -132,12 +107,10 @@ Run tests for a specific module:
 ```bash
 # Using uv (recommended)
 uv run pytest tests/config/test_config.py
-uv run pytest tests/config/test_fl_config.py
 uv run pytest tests/test_imports.py
 
 # Or using pytest directly
 pytest tests/config/test_config.py
-pytest tests/config/test_fl_config.py
 pytest tests/test_imports.py
 ```
 
@@ -204,30 +177,6 @@ When adding new functionality to the configuration system:
 3. **Use descriptive docstrings** to explain what each test verifies
 4. **Test edge cases** including error conditions and boundary values
 5. **Mock external dependencies** using `unittest.mock` when appropriate
-
-## Example Test Structure
-
-```python
-class TestMyConfig:
-    """Test cases for MyConfig dataclass."""
-
-    def test_creation_with_defaults(self):
-        """Test MyConfig creation with default values."""
-        config = MyConfig(required_param="value")
-
-        assert config.required_param == "value"
-        assert config.optional_param == "default_value"
-
-    def test_creation_with_custom_values(self):
-        """Test MyConfig creation with custom values."""
-        config = MyConfig(
-            required_param="custom",
-            optional_param="custom_value"
-        )
-
-        assert config.required_param == "custom"
-        assert config.optional_param == "custom_value"
-```
 
 ## Troubleshooting
 

@@ -7,8 +7,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
-from .fl_config import FLConfig
-
 
 @dataclass
 class DataConfig:
@@ -28,6 +26,7 @@ class DataConfig:
     use_multiprocessing_transforms: bool = False  # Whether to use multiprocessing-safe transforms
     transform_device: Optional[str] = None  # Device to use for transforms (e.g., "cuda" or "cpu")
     multiprocessing_context: str = "spawn"  # Options: "spawn", "fork", "forkserver"
+    tensor_dir: Optional[str] = None  # Root directory for pre-processed .pt tensors (used with dataset_type="tensor_folder")
     classification_mode: str = (
         "CN_MCI_AD"  # Mode for classification, either "CN_MCI_AD" (3 classes) or "CN_AD" (2 classes)
     )
@@ -115,7 +114,6 @@ class Config:
     data: DataConfig
     model: ModelConfig
     training: TrainingConfig
-    fl: FLConfig
     wandb: WandbConfig
 
     @classmethod
@@ -132,72 +130,12 @@ class Config:
         # Create training config with the checkpoint config
         training_config = TrainingConfig(**training_dict, checkpoint=checkpoint_config)
 
-        # Handle FL config with multi-machine settings
-        fl_dict = config_dict.get("fl", {})
-
-        # Extract multi-machine config if present
-        multi_machine_dict = fl_dict.pop("multi_machine", None)
-        multi_machine_config = None
-
-        if multi_machine_dict:
-            from .fl_config import ClientMachineConfig, MultiMachineConfig, ServerMachineConfig, SSHConfig
-
-            # Parse server config
-            server_config = None
-            if "server" in multi_machine_dict:
-                server_data = multi_machine_dict["server"]
-                server_config = ServerMachineConfig(
-                    host=server_data["host"],
-                    username=server_data["username"],
-                    password=server_data.get("password"),
-                    port=server_data.get("port", 9092),
-                    config_file=server_data.get("config_file"),
-                    sequential_experiment=server_data.get("sequential_experiment", False),
-                    train_sequential_labels=server_data.get("train_sequential_labels"),
-                    val_sequential_labels=server_data.get("val_sequential_labels"),
-                )
-
-            # Parse client configs
-            client_configs = []
-            if "clients" in multi_machine_dict:
-                for i, client_data in enumerate(multi_machine_dict["clients"]):
-                    client_config = ClientMachineConfig(
-                        host=client_data["host"],
-                        username=client_data["username"],
-                        password=client_data.get("password"),
-                        partition_id=client_data.get("partition_id", i),
-                        project_dir=client_data.get("project_dir"),
-                        config_file=client_data.get("config_file"),
-                        sequential_experiment=client_data.get("sequential_experiment", False),
-                        train_sequential_labels=client_data.get("train_sequential_labels"),
-                        val_sequential_labels=client_data.get("val_sequential_labels"),
-                    )
-                    client_configs.append(client_config)
-
-            # Parse SSH config
-            ssh_config = SSHConfig()
-            if "ssh" in multi_machine_dict:
-                ssh_config = SSHConfig(**multi_machine_dict["ssh"])
-
-            # Create multi-machine config
-            multi_machine_config = MultiMachineConfig(
-                server=server_config,
-                clients=client_configs,
-                project_dir=multi_machine_dict.get("project_dir"),
-                venv_path=multi_machine_dict.get("venv_path"),
-                venv_activate=multi_machine_dict.get("venv_activate"),
-                ssh=ssh_config,
-            )
-
-        fl_config = FLConfig(**fl_dict, multi_machine=multi_machine_config)
-
         wandb_config = WandbConfig(**config_dict.get("wandb", {}))
 
         config = cls(
             data=data_config,
             model=model_config,
             training=training_config,
-            fl=fl_config,
             wandb=wandb_config,
         )
 
@@ -241,95 +179,6 @@ class Config:
             # If output directory is specified but doesn't match run_name, append run_name
             self.training.output_dir = os.path.join(self.training.output_dir, f"{self.wandb.run_name}")
 
-        # Note: FL checkpoints will be stored in {training.output_dir}/checkpoints/
-
-    def _get_fl_dict(self) -> Dict[str, Any]:
-        """Get FL configuration as dictionary including multi-machine settings."""
-        fl_dict = {
-            "num_rounds": self.fl.num_rounds,
-            "strategy": self.fl.strategy,
-            "fraction_fit": self.fl.fraction_fit,
-            "fraction_evaluate": self.fl.fraction_evaluate,
-            "min_fit_clients": self.fl.min_fit_clients,
-            "min_evaluate_clients": self.fl.min_evaluate_clients,
-            "min_available_clients": self.fl.min_available_clients,
-            "local_epochs": self.fl.local_epochs,
-            "client_config_files": self.fl.client_config_files,
-            "evaluate_frequency": self.fl.evaluate_frequency,
-            "fedprox_mu": self.fl.fedprox_mu,
-            # Differential Privacy parameters (for LocalDpMod)
-            "dp_clipping_norm": self.fl.dp_clipping_norm,
-            "dp_sensitivity": self.fl.dp_sensitivity,
-            "dp_epsilon": self.fl.dp_epsilon,
-            "dp_delta": self.fl.dp_delta,
-            "dp_use_gaussian_mechanism": self.fl.dp_use_gaussian_mechanism,
-            # SecAgg+ (real secure aggregation) parameters
-            "secagg_num_shares": self.fl.secagg_num_shares,
-            "secagg_reconstruction_threshold": self.fl.secagg_reconstruction_threshold,
-            "secagg_max_weight": self.fl.secagg_max_weight,
-            "secagg_timeout": self.fl.secagg_timeout,
-            "secagg_clipping_range": self.fl.secagg_clipping_range,
-            "secagg_quantization_range": self.fl.secagg_quantization_range,
-            "client_id": self.fl.client_id,
-        }
-
-        # Add multi-machine configuration if present
-        if self.fl.multi_machine:
-            multi_machine_dict = {
-                "project_dir": self.fl.multi_machine.project_dir,
-                "venv_path": self.fl.multi_machine.venv_path,
-                "venv_activate": self.fl.multi_machine.venv_activate,
-                "ssh": {
-                    "timeout": self.fl.multi_machine.ssh.timeout,
-                    "banner_timeout": self.fl.multi_machine.ssh.banner_timeout,
-                    "auth_timeout": self.fl.multi_machine.ssh.auth_timeout,
-                },
-            }
-
-            # Add server config if present
-            if self.fl.multi_machine.server:
-                server_dict = {
-                    "host": self.fl.multi_machine.server.host,
-                    "username": self.fl.multi_machine.server.username,
-                    "password": self.fl.multi_machine.server.password,
-                    "port": self.fl.multi_machine.server.port,
-                }
-                if self.fl.multi_machine.server.config_file:
-                    server_dict["config_file"] = self.fl.multi_machine.server.config_file
-                if self.fl.multi_machine.server.sequential_experiment:
-                    server_dict["sequential_experiment"] = self.fl.multi_machine.server.sequential_experiment
-                if self.fl.multi_machine.server.train_sequential_labels:
-                    server_dict["train_sequential_labels"] = self.fl.multi_machine.server.train_sequential_labels
-                if self.fl.multi_machine.server.val_sequential_labels:
-                    server_dict["val_sequential_labels"] = self.fl.multi_machine.server.val_sequential_labels
-                multi_machine_dict["server"] = server_dict
-
-            # Add clients config
-            if self.fl.multi_machine.clients:
-                client_dicts = []
-                for client in self.fl.multi_machine.clients:
-                    client_dict = {
-                        "host": client.host,
-                        "username": client.username,
-                        "password": client.password,
-                        "partition_id": client.partition_id,
-                        "project_dir": client.project_dir,
-                    }
-                    if client.config_file:
-                        client_dict["config_file"] = client.config_file
-                    if client.sequential_experiment:
-                        client_dict["sequential_experiment"] = client.sequential_experiment
-                    if client.train_sequential_labels:
-                        client_dict["train_sequential_labels"] = client.train_sequential_labels
-                    if client.val_sequential_labels:
-                        client_dict["val_sequential_labels"] = client.val_sequential_labels
-                    client_dicts.append(client_dict)
-                multi_machine_dict["clients"] = client_dicts
-
-            fl_dict["multi_machine"] = multi_machine_dict
-
-        return fl_dict
-
     @property
     def checkpoint_dir(self) -> str:
         """Get the checkpoint directory derived from training.output_dir."""
@@ -353,6 +202,7 @@ class Config:
                 "use_multiprocessing_transforms": self.data.use_multiprocessing_transforms,
                 "transform_device": self.data.transform_device,
                 "multiprocessing_context": self.data.multiprocessing_context,
+                "tensor_dir": self.data.tensor_dir,
                 "classification_mode": self.data.classification_mode,
                 "mci_subtype_filter": self.data.mci_subtype_filter,
             },
@@ -394,7 +244,6 @@ class Config:
                     "save_frequency": self.training.checkpoint.save_frequency,
                 },
             },
-            "fl": self._get_fl_dict(),
             "wandb": {
                 "use_wandb": self.wandb.use_wandb,
                 "project": self.wandb.project,

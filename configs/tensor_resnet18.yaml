@@ -1,0 +1,45 @@
+data:
+  train_csv_path: "csv_splits/train.csv"
+  val_csv_path: "csv_splits/val.csv"
+  img_dir: ""
+  tensor_dir: "3D_tensors"
+  dataset_type: "tensor_folder"
+  resize_size: [128, 128, 128]
+  resize_mode: "trilinear"
+  classification_mode: "CN_MCI_AD"
+
+model:
+  name: "resnet3d"
+  num_classes: 3
+  model_depth: 18
+  pretrained_checkpoint: null
+
+training:
+  batch_size: 4
+  num_epochs: 300
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  num_workers: 4
+  output_dir: "outputs"
+  seed: 42
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  visualize: false
+  lr_scheduler: "cosine"
+  val_epoch_freq: 5
+  use_class_weights: true
+  class_weight_type: "sqrt_inverse"
+  loss_type: "cross_entropy"
+  checkpoint:
+    save_best: true
+    save_latest: true
+    save_regular: false
+    save_frequency: 10
+
+wandb:
+  use_wandb: false
+  project: "fl-adni-classification"
+  entity: ""
+  tags: ["resnet18", "tensor_folder", "3class"]
+  notes: "ResNet3D-18 with pre-processed .pt tensors"
+  run_name: "tensor-resnet18"
